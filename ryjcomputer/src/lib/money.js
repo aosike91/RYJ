@@ -1,0 +1,7 @@
+export const PEN = new Intl.NumberFormat("es-PE", {
+  style: "currency",
+  currency: "PEN",
+  minimumFractionDigits: 2,
+});
+
+export const formatPEN = (n) => PEN.format(n);
