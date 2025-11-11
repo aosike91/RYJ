@@ -4,17 +4,17 @@ export default function Login() {
   const [tab, setTab] = useState("login");
 
   return (
-    <div className="max-w-md mx-auto px-4">
-      <div className="border rounded-2xl p-6 shadow-sm">
-        <div className="flex gap-2 mb-6">
+    <div className="max-w-md mx-auto px-4 py-4 md:py-8">
+      <div className="border rounded-2xl p-4 md:p-6 shadow-sm">
+        <div className="flex gap-2 mb-4 md:mb-6">
           <button
-            className={`flex-1 py-2 rounded-xl ${tab === "login" ? "bg-zinc-900 text-white" : "bg-zinc-100"}`}
+            className={`flex-1 py-2 rounded-xl text-sm md:text-base ${tab === "login" ? "bg-zinc-900 text-white" : "bg-zinc-100"}`}
             onClick={() => setTab("login")}
           >
             Iniciar sesión
           </button>
           <button
-            className={`flex-1 py-2 rounded-xl ${tab === "registro" ? "bg-zinc-900 text-white" : "bg-zinc-100"}`}
+            className={`flex-1 py-2 rounded-xl text-sm md:text-base ${tab === "registro" ? "bg-zinc-900 text-white" : "bg-zinc-100"}`}
             onClick={() => setTab("registro")}
           >
             Registrarse

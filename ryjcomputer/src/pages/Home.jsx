@@ -182,22 +182,24 @@ export default function Home() {
   const featuredBy = (cat) => PRODUCTS.filter((p) => p.category === cat && p?.featured);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 space-y-10">
+        <div className="max-w-7xl mx-auto px-4 space-y-10">
       {/* Carrusel + video lateral */}
-      <div className="flex gap-6 pt-7 items-stretch">
-        <div className="flex-1 relative rounded-xl overflow-hidden bg-zinc-900 min-h-[350px] flex items-center justify-center">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6 pt-4 md:pt-7 items-stretch">
+        {/* Carrusel */}
+        <div className="flex-1 relative rounded-xl overflow-hidden bg-zinc-900 min-h-[220px] md:min-h-[340px] flex items-center justify-center">
           <button
-            className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 flex items-center justify-center z-10 cursor-pointer"
+            className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 flex items-center justify-center z-10 cursor-pointer"
             onClick={prev}
             aria-label="Anterior"
           >
-            <svg width="24" height="24" fill="none" stroke="black" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+            <svg width="24" height="24" fill="none" stroke="black" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
 
           <div
-            className="w-full h-[350px] flex items-center justify-center cursor-pointer select-none"
+            className="w-full h-[220px] md:h-[340px] flex items-center justify-center cursor-pointer select-none"
             style={{
-              background: "#222",
               backgroundImage: `url(${carouselImages[index]})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
@@ -207,21 +209,38 @@ export default function Home() {
           />
 
           <button
-            className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 flex items-center justify-center z-10 cursor-pointer"
+            className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 flex items-center justify-center z-10 cursor-pointer"
             onClick={next}
             aria-label="Siguiente"
           >
-            <svg width="24" height="24" fill="none" stroke="black" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+            <svg width="24" height="24" fill="none" stroke="black" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M9 5l7 7-7 7" />
+            </svg>
           </button>
 
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
             {carouselImages.map((_, i) => (
-              <span key={i} className={`block w-2 h-2 rounded-full ${i === index ? "bg-white" : "bg-white/40"}`} />
+              <span
+                key={i}
+                className={`block w-2 h-2 rounded-full ${
+                  i === index ? "bg-white" : "bg-white/40"
+                }`}
+              />
             ))}
           </div>
         </div>
 
-        <div className="w-[260px] flex-shrink-0 rounded-xl overflow-hidden min-h-[350px] hidden md:flex items-center justify-center bg-black">
+        {/* Video: full width en móvil, lateral en desktop */}
+        <div
+          className="
+            w-full md:w-[260px]
+            flex-shrink-0
+            rounded-xl overflow-hidden
+            min-h-[180px] md:min-h-[340px]
+            flex items-center justify-center
+            bg-black
+          "
+        >
           <video
             src={LateralVideo}
             className="w-full h-full object-cover"

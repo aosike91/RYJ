@@ -7,7 +7,7 @@ import LogoButton from "../components/LogoButton.jsx";
 import MiniCartDrawer from "../components/MiniCartDrawer.jsx";
 import Logo from "../assets/Logo.png";
 
-/* --------- Utils: animación del badge al cambiar el contador --------- */
+/* --------- Animación del badge del carrito --------- */
 
 function useBadgeBump(value) {
   const [cls, setCls] = useState("");
@@ -15,8 +15,8 @@ function useBadgeBump(value) {
 
   useEffect(() => {
     if (prev.current !== value) {
-      setCls("badge-pop badge-ring");     // aplica animaciones
-      const t = setTimeout(() => setCls(""), 450); // coincide con cart-ring
+      setCls("badge-pop badge-ring");
+      const t = setTimeout(() => setCls(""), 450);
       prev.current = value;
       return () => clearTimeout(t);
     }
@@ -25,9 +25,11 @@ function useBadgeBump(value) {
   return cls;
 }
 
-/* --------- FAB del carrito (flotante) --------- */
+/* --------- Botón flotante del carrito --------- */
+
 function FloatingCartButton({ count, onClick, className = "" }) {
   const bumpCls = useBadgeBump(count);
+
   return (
     <button
       onClick={onClick}
@@ -37,12 +39,20 @@ function FloatingCartButton({ count, onClick, className = "" }) {
                   focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-purple)]
                   cursor-pointer ${className}`}
     >
-      {/* Ícono carrito (SVG inline para poder tintarlo con currentColor) */}
-      <svg width="24" height="24" viewBox="0 0 24 24" className="pointer-events-none" fill="currentColor">
-        <path fillRule="evenodd" clipRule="evenodd"
-          d="M5.79166 2H1V4H4.2184L6.9872 16.6776H7V17H20V16.7519L22.1932 7.09095L22.5308 6H6.6552L6.08485 3.38852L5.79166 2ZM19.9869 8H7.092L8.62081 15H18.3978L19.9869 8Z"/>
-        <path d="M10 22C11.1046 22 12 21.1046 12 20C12 18.8954 11.1046 18 10 18C8.89543 18 8 18.8954 8 20C8 21.1046 8.89543 22 10 22Z"/>
-        <path d="M19 20C19 21.1046 18.1046 22 17 22C15.8954 22 15 21.1046 15 20C15 18.8954 15.8954 18 17 18C18.1046 18 19 18.8954 19 20Z"/>
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        className="pointer-events-none"
+        fill="currentColor"
+      >
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M5.79166 2H1V4H4.2184L6.9872 16.6776H7V17H20V16.7519L22.1932 7.09095L22.5308 6H6.6552L6.08485 3.38852L5.79166 2ZM19.9869 8H7.092L8.62081 15H18.3978L19.9869 8Z"
+        />
+        <path d="M10 22C11.1046 22 12 21.1046 12 20C12 18.8954 11.1046 18 10 18C8.89543 18 8 18.8954 8 20C8 21.1046 8.89543 22 10 22Z" />
+        <path d="M19 20C19 21.1046 18.1046 22 17 22C15.8954 22 15 21.1046 15 20C15 18.8954 15.8954 18 17 18C18.1046 18 19 18.8954 19 20Z" />
       </svg>
 
       {count > 0 && (
@@ -57,16 +67,22 @@ function FloatingCartButton({ count, onClick, className = "" }) {
   );
 }
 
+/* --------- Layout principal --------- */
+
 export default function MenuPrincipal() {
   const { count } = useCart();
   const navigate = useNavigate();
   const [drawer, setDrawer] = useState(false);
 
-  // Mostrar/ocultar FAB según scroll (cuando el top bar NO está visible)
-  const topBarRef = useRef(null);
-  const [fabVisible, setFabVisible] = useState(false); // target de visibilidad
-  const [fabRender, setFabRender] = useState(false);   // montado en DOM
-  const [fabLeaving, setFabLeaving] = useState(false); // animando salida
+  const topBarRef = useRef(null);      // header blanco
+  const purpleRef = useRef(null);      // barra morada
+  const [navFixed, setNavFixed] = useState(false);
+  const [navHeight, setNavHeight] = useState(0);
+
+  // FAB según visibilidad del top bar
+  const [fabVisible, setFabVisible] = useState(false);
+  const [fabRender, setFabRender] = useState(false);
+  const [fabLeaving, setFabLeaving] = useState(false);
 
   useEffect(() => {
     if (!topBarRef.current) return;
@@ -80,121 +96,228 @@ export default function MenuPrincipal() {
 
   useEffect(() => {
     if (fabVisible) {
-      setFabRender(true);      // monta y hace “zoom in”
+      setFabRender(true);
       setFabLeaving(false);
     } else if (fabRender) {
-      setFabLeaving(true);     // “zoom out”
+      setFabLeaving(true);
       const t = setTimeout(() => {
-        setFabRender(false);   // desmonta tras la animación
+        setFabRender(false);
         setFabLeaving(false);
       }, 200);
       return () => clearTimeout(t);
     }
   }, [fabVisible, fabRender]);
 
+  // Medir altura de la barra morada
+  useEffect(() => {
+    if (purpleRef.current) {
+      setNavHeight(purpleRef.current.offsetHeight);
+    }
+    const onResize = () => {
+      if (purpleRef.current) {
+        setNavHeight(purpleRef.current.offsetHeight);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Simular sticky: cuando el header blanco sale de la vista,
+  // fijar la barra morada en top:0
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!topBarRef.current) return;
+      const rect = topBarRef.current.getBoundingClientRect();
+      setNavFixed(rect.bottom <= 0);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
-      {/* Top utility bar */}
-      <div ref={topBarRef} className="w-full border-b border-zinc-200 bg-white">
-        <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between text-sm">
+    <div className="min-h-screen bg-white text-zinc-900 overflow-x-hidden">
+      {/* TOP BAR: Logo + búsqueda + acciones */}
+      <div
+        ref={topBarRef}
+        className="w-full border-b border-zinc-200 bg-white"
+      >
+        <div
+          className="
+            max-w-6xl mx-auto px-4 py-2
+            flex flex-col gap-2
+            md:flex-row md:items-center md:gap-4
+          "
+        >
           {/* Logo */}
-          <div className="flex-shrink-0 cursor-pointer">
+          <div className="flex justify-center md:justify-start">
             <LogoButton />
           </div>
 
-          {/* Búsqueda */}
-          <div className="flex-1 flex justify-center px-4">
-            <form className="w-full max-w-md">
+          {/* Búsqueda + iconos */}
+          <div className="flex items-center gap-3 w-full">
+            <form className="flex-1">
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Búsqueda en catálogo"
-                  className="w-full border border-zinc-300 rounded-lg py-2 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="
+                    w-full border border-zinc-300 rounded-lg
+                    py-2 pl-4 pr-10 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-brand
+                  "
                 />
                 <button
                   type="submit"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-brand"
+                  className="
+                    absolute right-2 top-1/2 -translate-y-1/2
+                    text-zinc-500 hover:text-brand
+                  "
                   tabIndex={-1}
                 >
-                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <svg
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    viewBox="0 0 24 24"
+                  >
                     <circle cx="11" cy="11" r="7" />
                     <line x1="16.5" y1="16.5" x2="21" y2="21" />
                   </svg>
                 </button>
               </div>
             </form>
-          </div>
 
-          {/* Acciones */}
-          <div className="flex items-center gap-4 flex-shrink-0">
-            <button
-              className="font-semibold text-zinc-900 hover:text-[var(--brand-purple)] transition-colors flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-              onClick={() => navigate("/login")}
-            >
-              <span className="icon-user" />
-              Inicio de sesión
-            </button>
-            <span className="text-zinc-300">|</span>
-            <button
-              className="font-semibold text-zinc-900 hover:text-[var(--brand-purple)] transition-colors flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-              onClick={() => setDrawer(true)}
-            >
-              <span className="icon-cart" />
-              Carrito ({count})
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                className="
+                  font-semibold text-zinc-900
+                  hover:text-[var(--brand-purple)]
+                  transition-colors
+                  flex items-center gap-1
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-brand
+                "
+                onClick={() => navigate("/login")}
+              >
+                <span className="icon-user" />
+                <span className="hidden md:inline">
+                  Inicio de sesión
+                </span>
+              </button>
+
+              <button
+                className="
+                  font-semibold text-zinc-900
+                  hover:text-[var(--brand-purple)]
+                  transition-colors
+                  flex items-center gap-1
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-brand
+                "
+                onClick={() => setDrawer(true)}
+              >
+                <span className="icon-cart" />
+                <span className="hidden md:inline">
+                  Carrito
+                </span>{" "}
+                ({count})
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Sticky menu */}
+      {/* MENÚ MORADO: se vuelve fixed al pasar el top bar */}
       <div
-        className="sticky top-0 z-50 text-white backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in_oklab,var(--brand-purple)_90%,transparent)] border-y border-zinc-200 shadow-sm"
-        style={{ background: "linear-gradient(50deg, var(--brand-purple) 0%, #0b91ffff 100%)" }}
+        ref={purpleRef}
+        className={`w-full text-white shadow-sm ${
+          navFixed ? "fixed top-0 left-0 right-0 z-50" : ""
+        }`}
+        style={{
+          background:
+            "linear-gradient(50deg, var(--brand-purple) 0%, #0b91ff 100%)",
+        }}
       >
         <div className="max-w-6xl mx-auto px-2 md:px-4">
-          <nav className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Dropdown
-                label="Categorías"
-                items={CATEGORIES}
-                onSelect={(name) => navigate(`/?categoria=${encodeURIComponent(name)}`)}
-              />
-              <Dropdown
-                label="Mantenimiento"
-                items={MANTENIMIENTO}
-                onSelect={(name) => navigate(`/?mantenimiento=${encodeURIComponent(name)}`)}
-              />
-              <Dropdown
-                label="Reparación"
-                items={REPARACION}
-                onSelect={(name) => navigate(`/?reparacion=${encodeURIComponent(name)}`)}
-              />
-            </div>
-            <div className="flex items-center divide-x divide-zinc-200">
-              <button className="px-4 py-3 text-lg font-medium hover:bg-[#005499ff] transition-colors" onClick={() => navigate("/terminos")}>
-                Términos
-              </button>
-              <button className="px-4 py-3 text-lg font-medium hover:bg-[#005499ff] transition-colors" onClick={() => navigate("/pagos")}>
-                Medios de Pago
-              </button>
-            </div>
+          <nav
+            className="
+              flex items-center gap-2
+              py-1
+              whitespace-nowrap
+              overflow-x-auto
+            "
+          >
+            <Dropdown
+              label="Categorías"
+              items={CATEGORIES}
+              onSelect={(name) =>
+                navigate(`/?categoria=${encodeURIComponent(name)}`)
+              }
+            />
+            <Dropdown
+              label="Mantenimiento"
+              items={MANTENIMIENTO}
+              onSelect={(name) =>
+                navigate(
+                  `/?mantenimiento=${encodeURIComponent(name)}`
+                )
+              }
+            />
+            <Dropdown
+              label="Reparación"
+              items={REPARACION}
+              onSelect={(name) =>
+                navigate(
+                  `/?reparacion=${encodeURIComponent(name)}`
+                )
+              }
+            />
+
+            <div className="flex-1" />
+
+            <button
+              className="
+                px-3 py-2 text-sm md:text-base font-medium
+                hover:bg-[#005499] rounded-lg transition-colors
+              "
+              onClick={() => navigate("/terminos")}
+            >
+              Términos
+            </button>
+            <button
+              className="
+                px-3 py-2 text-sm md:text-base font-medium
+                hover:bg-[#005499] rounded-lg transition-colors
+              "
+              onClick={() => navigate("/pagos")}
+            >
+              Medios de Pago
+            </button>
           </nav>
         </div>
       </div>
 
-      {/* Body */}
-      <main className="pt-1 md:pt-1 pb-8 md:pb-10 space-y-8">
+      {/* Espaciador para que el contenido no salte cuando la barra es fixed */}
+      {navFixed && <div style={{ height: navHeight }} />}
+
+      {/* CONTENIDO */}
+      <main className="pt-1 pb-8 md:pb-10 space-y-8">
         <Outlet />
       </main>
 
-      {/* Footer */}
+      {/* FOOTER */}
       <footer className="mt-12 border-t border-zinc-200 bg-white">
         <div className="max-w-6xl mx-auto px-4 py-10 grid gap-10 md:grid-cols-3 lg:grid-cols-4">
           <div className="space-y-4">
-            <div className="text-2xl font-extrabold">
-              <img src={Logo} alt="Logo R y J Computer" className="h-50 md:h-30" />
-            </div>
-            <p className="text-sm text-zinc-600">¿Tienes alguna pregunta? Llámanos o escríbenos.</p>
+            <img
+              src={Logo}
+              alt="Logo R y J Computer"
+              className="h-10 w-auto md:h-12 lg:h-14 object-contain"
+            />
+            <p className="text-sm text-zinc-600">
+              ¿Tienes alguna pregunta? Llámanos o escríbenos.
+            </p>
             <div className="space-y-1 text-sm">
               <div>907 232 869</div>
               <div>947 276 680</div>
@@ -204,7 +327,9 @@ export default function MenuPrincipal() {
                 onClick={() => navigate("/reclamaciones")}
                 className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 px-4 py-2 hover:bg-zinc-50"
               >
-                <span role="img" aria-label="book">📘</span>
+                <span role="img" aria-label="book">
+                  📘
+                </span>
                 <span>Libro de Reclamaciones</span>
               </button>
             </div>
@@ -213,9 +338,24 @@ export default function MenuPrincipal() {
           <div className="space-y-3">
             <h3 className="font-semibold">COMPAÑÍA</h3>
             <ul className="space-y-2 text-sm text-zinc-700">
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/quienes")}>¿Quiénes somos?</li>
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/tienda")}>Tienda</li>
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/contacto")}>Contáctanos</li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/quienes")}
+              >
+                ¿Quiénes somos?
+              </li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/tienda")}
+              >
+                Tienda
+              </li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/contacto")}
+              >
+                Contáctanos
+              </li>
             </ul>
           </div>
 
@@ -234,19 +374,51 @@ export default function MenuPrincipal() {
           <div className="space-y-3">
             <h3 className="font-semibold">SERVICIO AL CLIENTE</h3>
             <ul className="space-y-2 text-sm text-zinc-700">
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/faq")}>Preguntas Frecuentes</li>
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/terminos")}>Términos condiciones</li>
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/privacidad")}>Políticas de Privacidad</li>
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/servicio")}>Servicio al cliente</li>
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/envios")}>Delivery y envíos</li>
-              <li className="hover:underline cursor-pointer" onClick={() => navigate("/garantias")}>Garantías y devoluciones</li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/faq")}
+              >
+                Preguntas Frecuentes
+              </li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/terminos")}
+              >
+                Términos condiciones
+              </li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/privacidad")}
+              >
+                Políticas de Privacidad
+              </li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/servicio")}
+              >
+                Servicio al cliente
+              </li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/envios")}
+              >
+                Delivery y envíos
+              </li>
+              <li
+                className="hover:underline cursor-pointer"
+                onClick={() => navigate("/garantias")}
+              >
+                Garantías y devoluciones
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-zinc-200">
           <div className="max-w-6xl mx-auto px-4 py-6 text-xs text-zinc-500 flex items-center justify-between">
-            <p>© {new Date().getFullYear()} R y J Computer. Todos los derechos reservados.</p>
+            <p>
+              © {new Date().getFullYear()} R y J Computer. Todos los derechos reservados.
+            </p>
             <div className="flex gap-3">
               <span>VISA</span>
               <span>Mastercard</span>
@@ -260,7 +432,7 @@ export default function MenuPrincipal() {
       {/* Drawer del carrito */}
       <MiniCartDrawer open={drawer} onClose={() => setDrawer(false)} />
 
-      {/* FAB del carrito (solo cuando el header no es visible y el drawer está cerrado) */}
+      {/* FAB del carrito */}
       {fabRender && !drawer && (
         <FloatingCartButton
           count={count}
@@ -268,7 +440,6 @@ export default function MenuPrincipal() {
           className={fabLeaving ? "fab-out" : "fab-in"}
         />
       )}
-      
     </div>
   );
 }

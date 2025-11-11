@@ -1,16 +1,19 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import Logo from "../assets/Logo.png";
 
 export default function LogoButton() {
   const navigate = useNavigate();
+
   return (
     <button
-      className="text-2xl md:text-3xl font-extrabold tracking-tight select-none cursor-pointer"
       onClick={() => navigate("/")}
-      aria-label="Ir al inicio"
+      className="flex items-center gap-2"
     >
-      <img src={Logo} alt="Logo R y J Computer" className="h-100 md:h-30 " />
+      <img
+        src={Logo}
+        alt="R Y J COMPUTER"
+        className="h-20 w-auto sm:h-20 md:h-20 lg:h-20 object-contain"
+      />
     </button>
   );
 }

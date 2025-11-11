@@ -17,11 +17,11 @@ export default function MiniCartDrawer({ open, onClose }) {
 
       {/* Panel */}
       <aside
-        className={`absolute right-0 top-0 h-full w-[360px] bg-white shadow-2xl border-l border-zinc-200
-                    transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
-        // evita que algo “flotante” se superponga por error
-        style={{ willChange: "transform" }}
-      >
+  className={`absolute right-0 top-0 h-full w-full max-w-sm sm:max-w-md md:w-[360px] bg-white shadow-2xl border-l border-zinc-200
+              transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+  style={{ willChange: "transform" }}
+>
+
         {/* Header */}
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="font-semibold">CARRITO DE COMPRAS</h3>
@@ -30,7 +30,7 @@ export default function MiniCartDrawer({ open, onClose }) {
             onClick={onClose}
             title="Cerrar"
           >
-            Cerrar →
+            Cerrar
           </button>
         </div>
 
