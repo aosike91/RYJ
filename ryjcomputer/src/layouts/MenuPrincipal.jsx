@@ -7,6 +7,7 @@ import LogoButton from "../components/LogoButton.jsx";
 import MiniCartDrawer from "../components/MiniCartDrawer.jsx";
 import Logo from "../assets/Logo.png";
 
+
 /* --------- Animación del badge del carrito --------- */
 
 function useBadgeBump(value) {
@@ -98,7 +99,7 @@ useEffect(() => {
       thumb: e.detail?.thumb ?? null,
       message: null,
     });
-    toastTimer.current = setTimeout(() => setToast(null), 1600);
+    toastTimer.current = setTimeout(() => setToast(null), 2000);
   };
 
   const onError = (e) => {

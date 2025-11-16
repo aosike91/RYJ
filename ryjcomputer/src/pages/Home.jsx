@@ -38,7 +38,7 @@ function PressButton({ className = "", onClick, children, ...props }) {
 
 // Tarjeta producto/servicio con selector de cantidad y validaciones
 function Card({ item, add, navigate }) {
-  const [qty, setQty] = React.useState(""); // vacío por defecto
+  const [qty, setQty] = React.useState("");
   const isService = item.kind === "service";
   const price = isService ? (item.price ?? item.priceFrom ?? 0) : item.price;
 
@@ -51,7 +51,6 @@ function Card({ item, add, navigate }) {
     if (!Number.isFinite(stock)) return String(n);
     return String(Math.min(n, stock));
   };
-
   const inc = () => {
     if (out) {
       window.dispatchEvent(new CustomEvent("cart:error", {
@@ -60,74 +59,62 @@ function Card({ item, add, navigate }) {
       return;
     }
     const curr = parseInt(qty, 10);
-    if (Number.isNaN(curr)) {
-      setQty("1"); // si estaba vacío, pasa a 1
-    } else {
-      setQty(clamp(curr + 1));
-    }
+    if (Number.isNaN(curr)) setQty("1");
+    else setQty(clamp(curr + 1));
   };
-
   const dec = () => {
     const curr = parseInt(qty, 10);
-    if (Number.isNaN(curr)) return;     // si está vacío, no hace nada
-    if (curr <= 1) return;              // no baja de 1
+    if (Number.isNaN(curr) || curr <= 1) return;
     setQty(String(curr - 1));
   };
-
   const onManualChange = (e) => {
-    const v = e.target.value.replace(/[^\d]/g, ""); // solo dígitos
-    if (v === "") { setQty(""); return; }           // permitir vacío
+    const v = e.target.value.replace(/[^\d]/g, "");
+    if (v === "") { setQty(""); return; }
     setQty(clamp(parseInt(v, 10)));
   };
-
-const handleAdd = () => {
-  if (out) {
-    window.dispatchEvent(new CustomEvent("cart:error", {
-      detail: { title: item.title, message: "Este producto está agotado." }
+  const handleAdd = () => {
+    if (out) {
+      window.dispatchEvent(new CustomEvent("cart:error", {
+        detail: { title: item.title, message: "Este producto está agotado." }
+      }));
+      return;
+    }
+    let units = parseInt(qty, 10);
+    if (Number.isNaN(units) || units < 1) units = 1;
+    if (units > stock) {
+      window.dispatchEvent(new CustomEvent("cart:error", {
+        detail: { title: item.title, message: `Solo hay ${stock} unidades en stock.` }
+      }));
+      return;
+    }
+    const payload = {
+      id: item.id,
+      title: item.title,
+      price,
+      category: isService ? "Servicios" : item.category,
+      thumb: item.thumb ?? null,
+    };
+    for (let i = 0; i < units; i++) add(payload);
+    window.dispatchEvent(new CustomEvent("cart:add", {
+      detail: { title: item.title, thumb: item.thumb ?? null }
     }));
-    return;
-  }
-
-  let units = parseInt(qty, 10);
-  if (Number.isNaN(units) || units < 1) units = 1;
-
-  // payload básico
-  const payload = {
-    id: item.id,
-    title: item.title,
-    price,
-    category: isService ? "Servicios" : item.category,
-    thumb: item.thumb ?? null,
+    setQty("");
   };
-
-  // 👉 ahora el contexto suma qty y limita por stock
-  add(payload, units);
-
-  // Toast de éxito (una vez)
-  window.dispatchEvent(new CustomEvent("cart:add", {
-    detail: { title: item.title, thumb: item.thumb ?? null }
-  }));
-
-  setQty("");
-};
-
-
   const goDetail = () => {
-    // si quieres detalle del producto:
     navigate(`/item/${encodeURIComponent(item.id)}`);
-    // y sube al top
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
     <div
-      className="group border rounded-2xl p-4 transition bg-white hover:shadow-lg cursor-pointer"
+      className="group h-full border rounded-2xl p-4 bg-white transition hover:shadow-xl cursor-pointer
+                 flex flex-col"
       onClick={goDetail}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" ? goDetail() : null)}
     >
-      {/* Imagen */}
+      {/* Imagen (altura fija) */}
       <div className="h-36 bg-zinc-100 rounded-xl grid place-items-center mb-3 overflow-hidden">
         {item.thumb ? (
           <img
@@ -136,18 +123,15 @@ const handleAdd = () => {
             className="max-h-36 object-contain p-2 transition-transform duration-200 group-hover:scale-[1.06]"
             loading="lazy"
           />
-        ) : (
-          <span className="text-[10px] text-zinc-500">IMG</span>
-        )}
+        ) : <span className="text-[10px] text-zinc-500">IMG</span>}
       </div>
 
-      {/* Título */}
+      {/* Título (min-height para 2 líneas) */}
       <h3 className="font-semibold min-h-[3rem] text-sm line-clamp-2">{item.title}</h3>
 
       {/* Precio + stock */}
       <div className="mt-2 flex items-center justify-between">
         <p className="text-brand font-bold">{formatPEN(price)}</p>
-
         {isService ? (
           <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-bold">
             Disponible
@@ -161,58 +145,59 @@ const handleAdd = () => {
         )}
       </div>
 
- {/* Selector de cantidad */}
-{!isService && (
-  <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-    <div className="w-full flex items-center justify-center gap-2">
-      <button
-        type="button"
-        onClick={dec}
-        className="w-9 h-9 rounded-full border border-zinc-300 text-white font-extrabold
-                   grid place-items-center bg-[var(--brand-purple)] hover:opacity-90 active:scale-95"
-        aria-label="Disminuir cantidad"
-      >
-        –
-      </button>
+      {/* Fila reservada para stepper (altura constante) */}
+      <div className="mt-3 min-h-[2.5rem] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+        {!isService ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={dec}
+              className="w-8 h-8 rounded-full grid place-items-center text-white font-extrabold
+                         bg-[var(--brand-purple)] hover:opacity-90 active:scale-95"
+              aria-label="Disminuir cantidad"
+            >
+              –
+            </button>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={qty}
+              onChange={onManualChange}
+              placeholder=""
+              className="w-12 h-8 text-center border rounded-md text-sm"
+              aria-label="Cantidad"
+            />
+            <button
+              type="button"
+              onClick={inc}
+              className="w-8 h-8 rounded-full grid place-items-center text-white font-extrabold
+                         bg-[var(--brand-purple)] hover:opacity-90 active:scale-95"
+              aria-label="Aumentar cantidad"
+            >
+              +
+            </button>
+          </div>
+        ) : (
+          // placeholder para igualar altura cuando no hay stepper
+          <div className="h-8" />
+        )}
+      </div>
 
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={qty}
-        onChange={onManualChange}
-        placeholder=""
-        className="w-12 h-9 text-center border rounded-md text-sm"
-        aria-label="Cantidad"
-      />
-
-      <button
-        type="button"
-        onClick={inc}
-        className="w-9 h-9 rounded-full border border-zinc-300 text-white font-extrabold
-                   grid place-items-center bg-[var(--brand-purple)] hover:opacity-90 active:scale-95"
-        aria-label="Aumentar cantidad"
-      >
-        +
-      </button>
-    </div>
-  </div>
-)}
-
-{/* Botón Añadir */}
-<div className="mt-3" onClick={(e) => e.stopPropagation()}>
-  <PressButton
-    className={`w-full btn-brand btn-brand-animated btn-press text-sm font-semibold
-                focus-brand ${out ? "opacity-60 cursor-not-allowed" : ""}`}
-    onClick={handleAdd}
-  >
-    Añadir al carrito
-  </PressButton>
-</div>
-
+      {/* Botón (queda al final) */}
+      <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+        <PressButton
+          className={`w-full btn-brand btn-brand-animated btn-press text-sm font-semibold
+                     ${out ? "opacity-60 cursor-not-allowed" : ""}`}
+          onClick={handleAdd}
+        >
+          Añadir al carrito
+        </PressButton>
+      </div>
     </div>
   );
 }
+
 
 
 

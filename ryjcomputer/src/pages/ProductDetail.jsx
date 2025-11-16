@@ -1,34 +1,30 @@
 // src/pages/ProductDetail.jsx
-import React from "react";
-import { useParams } from "react-router-dom";
+import React, { useRef, useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import * as catalog from "../data/catalog.js";
 import { useCart } from "../context/CartContext.jsx";
 import { formatPEN } from "../lib/money.js";
 
-/** Normaliza specs a pares [label, value] para dibujar SIEMPRE igual */
+/* ------------------------- Normalizador de specs ------------------------- */
 function normalizeSpecs(specs) {
   if (!specs) return [];
   if (Array.isArray(specs)) {
-    // Intenta separar "Clave: Valor". Si no hay ":", usa la frase como valor.
     return specs.map((s, i) => {
-      const t = String(s);
+      const t = String(s ?? "");
       const idx = t.indexOf(":");
       if (idx > -1) {
         const k = t.slice(0, idx).trim();
         const v = t.slice(idx + 1).trim();
         return [k || `Ítem ${i + 1}`, v || "—"];
       }
-      return [`Ítem ${i + 1}`, t];
+      return [`Ítem ${i + 1}`, t || "—"];
     });
   }
-  if (typeof specs === "string") {
-    return [["Detalles", specs.trim() || "—"]];
-  }
-  // Objeto plano
+  if (typeof specs === "string") return [["Detalles", specs.trim() || "—"]];
   return Object.entries(specs).map(([k, v]) => [k, String(v)]);
 }
 
-/** Tabla 2 columnas estilo ficha técnica */
+/* --------------------- Tabla 2 columnas (ficha técnica) ------------------ */
 function SpecsTable({ specs }) {
   const rows = normalizeSpecs(specs);
   if (rows.length === 0) return null;
@@ -61,16 +57,118 @@ function SpecsTable({ specs }) {
   );
 }
 
+/* -------- Carrusel de relacionados: 2 en móvil, 3 en md, 4 en lg; flechas visibles en móvil ----- */
+function RelatedRow({ items, onOpen }) {
+  const trackRef = React.useRef(null);
+
+  const scrollByCards = (dir = 1) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const first = el.querySelector(".rel-item");
+    const step = first ? first.getBoundingClientRect().width + 16 : el.clientWidth / 2;
+    el.scrollBy({ left: dir * step, behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative">
+      <style>{`
+        .rel-track {
+          --gap: 16px;
+          --cols: 2;                    
+          gap: var(--gap);
+          -ms-overflow-style: none;      
+          scrollbar-width: none;         
+          touch-action: pan-x;          
+        }
+        .rel-track::-webkit-scrollbar { display: none; } /* WebKit */
+
+        /* md: 3 por vista */
+        @media (min-width: 768px) { .rel-track { --cols: 3; } }
+        /* lg: 4 por vista */
+        @media (min-width: 1024px){ .rel-track { --cols: 4; } }
+
+        .rel-item { width: calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); }
+      `}</style>
+
+      {/* padding lateral para que no se “corten” los bordes en móvil */}
+      <div
+        ref={trackRef}
+        className="rel-track -mx-3 px-3 flex items-stretch overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
+        style={{ scrollSnapType: "x mandatory" }}
+      >
+        {items.map((r) => (
+          <div key={r.id} className="rel-item snap-start flex-none">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpen?.(r.id)}
+              onKeyDown={(e) => (e.key === "Enter" ? onOpen?.(r.id) : null)}
+              className="group cursor-pointer select-none rounded-2xl border bg-white p-3 hover:shadow-xl transition
+                         h-[320px] md:h-[340px] xl:h-[360px] flex flex-col"
+            >
+              <div className="h-40 md:h-44 bg-zinc-100 rounded-xl grid place-items-center overflow-hidden">
+                {r.thumb ? (
+                  <img
+                    src={r.thumb}
+                    alt={r.title}
+                    loading="lazy"
+                    className="max-h-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.06]"
+                  />
+                ) : (
+                  <span className="text-[10px] text-zinc-500">IMG</span>
+                )}
+              </div>
+              <p className="mt-3 text-sm font-medium line-clamp-2 min-h-[3rem]">{r.title}</p>
+              <div className="mt-auto" />
+              <p className="text-sm font-bold text-brand">{formatPEN(r.price)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+<button
+  aria-label="Anterior relacionados"
+  onClick={() => scrollByCards(-1)}
+  className="hidden md:inline-grid place-items-center rounded-full w-9 h-9 text-white
+             shadow-sm border transition bg-[var(--brand-purple)]
+             border-[color-mix(in_oklab,white_30%,transparent)]
+             hover:opacity-95 active:scale-95
+             absolute left-1 md:-left-14  top-1/2 -translate-y-1/2 z-10"
+>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M15 19l-7-7 7-7" />
+  </svg>
+</button> 
+<button
+  aria-label="Siguiente relacionados"
+  onClick={() => scrollByCards(1)}
+  className="hidden md:inline-grid place-items-center rounded-full w-9 h-9 text-white
+             shadow-sm border transition bg-[var(--brand-purple)]
+             border-[color-mix(in_oklab,white_30%,transparent)]
+             hover:opacity-95 active:scale-95
+             absolute right-1 md:-right-14 top-1/2 -translate-y-1/2 z-10"
+>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M9 5l7 7-7 7" />
+  </svg>
+</button>
+    </div>
+  );
+}
+
+
+/* ----------------------------- ProductDetail ----------------------------- */
 export default function ProductDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { add } = useCart();
 
   const all = [...(catalog.PRODUCTS || []), ...(catalog.SERVICES || [])];
   const item = all.find((x) => String(x.id) === String(id));
 
-  const [qty, setQty] = React.useState(""); // vacío por defecto
+  const [qty, setQty] = useState(""); // vacío por defecto
 
-  React.useEffect(() => {
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id]);
 
@@ -152,17 +250,23 @@ export default function ProductDetail() {
   };
 
   const related = !isService && item.category
-    ? (catalog.PRODUCTS || []).filter(p => p.category === item.category && p.id !== item.id).slice(0, 8)
+    ? (catalog.PRODUCTS || []).filter(p => p.category === item.category && p.id !== item.id).slice(0, 12)
     : [];
 
-  const summaryText = (item.summary && String(item.summary).trim()) || "No hay resumen disponible para este producto";
-  const descriptionText = (item.description && String(item.description).trim()) || "No hay descripción disponible para este producto";
+  const summaryText =
+    (item.summary && String(item.summary).trim()) ||
+    "No hay resumen disponible para este producto";
+  const descriptionText =
+    (item.description && String(item.description).trim()) ||
+    "No hay descripción disponible para este producto";
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
       {/* Header del item */}
       <div className="grid md:grid-cols-2 gap-6">
-        <div className="rounded-xl bg-zinc-100 min-h-[260px] grid place-items-center overflow-hidden">
+        <div className="relative rounded-xl bg-zinc-100 min-h-[260px] grid place-items-center overflow-hidden">
+         
+
           {item.thumb ? (
             <img src={item.thumb} alt={item.title} className="max-h-[360px] object-contain p-4" />
           ) : (
@@ -234,33 +338,20 @@ export default function ProductDetail() {
         <p className="text-zinc-700 leading-relaxed">{descriptionText}</p>
       </section>
 
-      {/* Especificaciones SIEMPRE con el mismo estilo */}
+      {/* Especificaciones */}
       <SpecsTable specs={item.specs} />
 
-      {/* Relacionados */}
+      {/* Relacionados – carrusel */}
       {related.length > 0 && (
         <section className="space-y-4">
           <h3 className="text-lg font-semibold">Relacionados</h3>
-          <div className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none]">
-            <style>{`.rel-hide::-webkit-scrollbar{display:none}`}</style>
-            {related.map((r) => (
-              <a
-                key={r.id}
-                href={`/item/${encodeURIComponent(r.id)}`}
-                className="min-w-[180px] rounded-xl border p-3 bg-white hover:shadow-md transition"
-              >
-                <div className="h-28 bg-zinc-100 rounded-lg grid place-items-center mb-2 overflow-hidden">
-                  {r.thumb ? (
-                    <img src={r.thumb} alt={r.title} className="max-h-28 object-contain p-2" />
-                  ) : (
-                    <span className="text-[10px] text-zinc-500">IMG</span>
-                  )}
-                </div>
-                <p className="text-sm font-medium line-clamp-2">{r.title}</p>
-                <p className="text-sm font-bold text-brand mt-1">{formatPEN(r.price)}</p>
-              </a>
-            ))}
-          </div>
+          <RelatedRow
+            items={related}
+            onOpen={(rid) => {
+              navigate(`/item/${encodeURIComponent(rid)}`);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
         </section>
       )}
     </div>
