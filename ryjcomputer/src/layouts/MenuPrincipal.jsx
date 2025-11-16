@@ -68,6 +68,7 @@ function FloatingCartButton({ count, onClick, className = "" }) {
 }
 
 /* --------- Layout principal --------- */
+import ScrollToTop from "../components/ScrollToTop.jsx";
 
 export default function MenuPrincipal() {
   const { count } = useCart();
@@ -83,6 +84,42 @@ export default function MenuPrincipal() {
   const [fabVisible, setFabVisible] = useState(false);
   const [fabRender, setFabRender] = useState(false);
   const [fabLeaving, setFabLeaving] = useState(false);
+
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
+
+// Toasts: éxito (cart:add) y error (cart:error)
+useEffect(() => {
+  const onAdd = (e) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({
+      kind: "success",
+      title: e.detail?.title ?? "Producto agregado",
+      thumb: e.detail?.thumb ?? null,
+      message: null,
+    });
+    toastTimer.current = setTimeout(() => setToast(null), 1600);
+  };
+
+  const onError = (e) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({
+      kind: "error",
+      title: e.detail?.title ?? "No se pudo agregar",
+      thumb: null,
+      message: e.detail?.message ?? "Error",
+    });
+    toastTimer.current = setTimeout(() => setToast(null), 1700);
+  };
+
+  window.addEventListener("cart:add", onAdd);
+  window.addEventListener("cart:error", onError);
+  return () => {
+    window.removeEventListener("cart:add", onAdd);
+    window.removeEventListener("cart:error", onError);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  };
+}, []);
 
   useEffect(() => {
     if (!topBarRef.current) return;
@@ -136,7 +173,9 @@ export default function MenuPrincipal() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900 overflow-x-hidden">
+    <div className="min-h-screen bg-[var(--app-bg)] text-zinc-900 overflow-x-hidden">
+
+      <ScrollToTop />   
       {/* TOP BAR: Logo + búsqueda + acciones */}
       <div
         ref={topBarRef}
@@ -432,14 +471,68 @@ export default function MenuPrincipal() {
       {/* Drawer del carrito */}
       <MiniCartDrawer open={drawer} onClose={() => setDrawer(false)} />
 
-      {/* FAB del carrito */}
-      {fabRender && !drawer && (
-        <FloatingCartButton
-          count={count}
-          onClick={() => setDrawer(true)}
-          className={fabLeaving ? "fab-out" : "fab-in"}
-        />
-      )}
+{/* Live region accesible (opcional) */}
+<div className="sr-only" aria-live="polite" aria-atomic="true">
+  {toast ? `Añadido al carrito: ${toast.title}` : ""}
+</div>
+
+{(fabRender || toast) && (
+  <div className="fixed right-4 md:right-6 bottom-24 md:bottom-24 z-[80] flex flex-col items-end gap-2 pointer-events-none">
+    {/* Toast */}
+    {toast && (
+      <div
+        className={
+          toast.kind === "error"
+            ? "pointer-events-auto bg-red-600 text-white border border-red-700 shadow-xl rounded-xl px-3 py-2 md:px-4 md:py-3 flex items-center gap-3 animate-[toastIn_.18s_ease-out]"
+            : "pointer-events-auto bg-white/95 backdrop-blur border border-zinc-200 shadow-xl rounded-xl px-3 py-2 md:px-4 md:py-3 flex items-center gap-3 animate-[toastIn_.18s_ease-out]"
+        }
+        role="status"
+        aria-live="polite"
+      >
+        {/* thumb solo para éxito */}
+        {toast.kind !== "error" ? (
+          toast.thumb ? (
+            <img
+              src={toast.thumb}
+              alt=""
+              className="w-9 h-9 rounded-md object-cover border border-zinc-200"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-md bg-zinc-200 grid place-items-center text-[10px]">IMG</div>
+          )
+        ) : null}
+
+        <div className="text-sm">
+          <p className={`font-semibold ${toast.kind === "error" ? "text-white" : ""}`}>
+            {toast.kind === "error" ? "No disponible" : "Añadido al carrito"}
+          </p>
+          <p className={`${toast.kind === "error" ? "text-white/90" : "text-zinc-600"} line-clamp-1`}>
+            {toast.kind === "error" ? (toast.message ?? "") : (toast.title ?? "")}
+          </p>
+        </div>
+
+        {toast.kind !== "error" && (
+          <button
+            onClick={() => setDrawer(true)}
+            className="ml-2 md:ml-3 text-xs md:text-sm font-medium text-[var(--brand-purple)] hover:underline"
+          >
+            Ver carrito
+          </button>
+        )}
+      </div>
+    )}
+
+    {/* FAB */}
+    {fabRender && !drawer && (
+      <FloatingCartButton
+        count={count}
+        onClick={() => setDrawer(true)}
+        className={`${fabLeaving ? "fab-out" : "fab-in"} pointer-events-auto`}
+      />
+    )}
+  </div>
+)}
+
     </div>
   );
 }

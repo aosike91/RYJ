@@ -97,3 +97,29 @@
   height: 24px;
   background: url('data:image/svg+xml;utf8,<svg width="24" height="24" fill="none" stroke="black" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="4"/><path d="M6 18c0-2 4-3 6-3s6 1 6 3"/></svg>') center/contain no-repeat;
 }
+
+
+/* === Fondo global y superficies === */
+:root{
+  /* Fondo general de la app (NO blanco por defecto) */
+  --app-bg: #f1f1f1;
+  /* Superficie de tarjetas/paneles (sí puede ser blanco) */
+  --surface: #ffffff;
+}
+
+/* Presets opcionales para cambiar rápido el fondo */
+[data-theme="soft-gray"]{ --app-bg:#f6f7fb; }
+[data-theme="warm"]{      --app-bg:#fff7f3; }
+[data-theme="mint"]{      --app-bg:#f3fff8; }
+[data-theme="night"]{
+  --app-bg:#0b1020;
+  --surface:#111827;
+  --brand-ink:#e5e7eb;   /* texto más claro opcional */
+}
+/* Degradado suave */
+[data-theme="gradient"]{
+  --app-bg: linear-gradient(180deg, #f7f9ff 0%, #eef3ff 100%);
+}
+
+/* Utilidad opcional para superficies si la quieres usar */
+.surface { background: var(--surface); }

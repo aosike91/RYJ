@@ -9,6 +9,7 @@ import Venta from "./pages/Venta.jsx";
 import Terminos from "./pages/Terminos.jsx";
 import Pagos from "./pages/Pagos.jsx";
 import Reclamaciones from "./pages/Reclamaciones.jsx";
+import ProductDetail from "./pages/ProductDetail.jsx";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="terminos" element={<Terminos />} />
             <Route path="pagos" element={<Pagos />} />
             <Route path="reclamaciones" element={<Reclamaciones />} />
+            <Route path="/item/:id" element={<ProductDetail />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -56,3 +56,23 @@ body {
   top: 0;
   z-index: 50;
 }
+
+@layer components {
+  .btn-nav {
+    @apply w-9 h-9 rounded-full bg-white/90 shadow
+           flex items-center justify-center
+           hover:bg-white hover:scale-105
+           transition;
+  }
+}
+
+@layer utilities {
+  @keyframes toastIn {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+}
+
+html, body, #root{
+  background: var(--app-bg);
+}
