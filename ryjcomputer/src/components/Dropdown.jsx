@@ -116,6 +116,7 @@ export default function Dropdown({
             px-3 md:px-4 py-2.5
             hover:bg-[#4400ff]
             hover:text-white
+            radius:10px
             transition
             font-medium
             text-sm md:text-base

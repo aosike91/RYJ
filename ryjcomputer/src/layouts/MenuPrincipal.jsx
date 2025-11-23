@@ -70,6 +70,9 @@ function FloatingCartButton({ count, onClick, className = "" }) {
 
 /* --------- Layout principal --------- */
 import ScrollToTop from "../components/ScrollToTop.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import AdminModal from "../components/AdminModal.jsx";
+import { createProduct } from "../lib/api.js";
 
 export default function MenuPrincipal() {
   const { count } = useCart();
@@ -88,6 +91,31 @@ export default function MenuPrincipal() {
 
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
+  const auth = useAuth();
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  async function handleAdminCreate(prod) {
+    if (!auth?.token) return alert('No autorizado');
+    try{
+      const res = await createProduct(prod, auth.token);
+      console.log('created', res);
+      // optionally show toast
+      const ev = new CustomEvent('cart:add', { detail: { title: res.title || 'Artículo creado', thumb: res.thumb || null } });
+      window.dispatchEvent(ev);
+      return res;
+    }catch(err){
+      console.error(err);
+      alert('Error al crear');
+    }
+  }
+
+  // listen for global event to open admin modal (used by profile shortcuts)
+  useEffect(()=>{
+    const onOpen = ()=> setAdminModalOpen(true);
+    window.addEventListener('open:admin', onOpen);
+    return ()=> window.removeEventListener('open:admin', onOpen);
+  }, []);
 
 // Toasts: éxito (cart:add) y error (cart:error)
 useEffect(() => {
@@ -231,38 +259,83 @@ useEffect(() => {
             </form>
 
             <div className="flex items-center gap-3">
-              <button
-                className="
-                  font-semibold text-zinc-900
-                  hover:text-[var(--brand-purple)]
-                  transition-colors
-                  flex items-center gap-1
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-brand
-                "
-                onClick={() => navigate("/login")}
-              >
-                <span className="icon-user" />
-                <span className="hidden md:inline">
-                  Inicio de sesión
-                </span>
-              </button>
+              {auth?.user ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <Dropdown
+                      label={auth.user.name || auth.user.email}
+                      items={auth.user.role === 'admin' ? ['Añadir artículos', 'Cerrar sesión'] : ['Ver perfil', 'Mi wishlist', 'Cerrar sesión']}
+                      onSelect={(it) => {
+                        if (it === 'Cerrar sesión') {
+                          if (confirm('Cerrar sesión?')) {
+                            auth.logout();
+                            navigate('/');
+                          }
+                          return;
+                        }
+                        if (it === 'Ver perfil') return navigate('/profile');
+                        if (it === 'Mi wishlist') return navigate('/profile/wishlist');
+                        if (it === 'Añadir artículos') return setAdminModalOpen(true);
+                      }}
+                      labelClassName="text-sm font-medium"
+                      itemClassName="text-sm"
+                    />
 
-              <button
-                className="
-                  font-semibold text-zinc-900
-                  hover:text-[var(--brand-purple)]
-                  transition-colors
-                  flex items-center gap-1
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-brand
-                "
-                onClick={() => setDrawer(true)}
-              >
-                <span className="icon-cart" />
-                <span className="hidden md:inline">
-                  Carrito
-                </span>{" "}
-                ({count})
-              </button>
+                    {auth.user.role === 'admin' && (
+                      <button
+                        title="Agregar artículo"
+                        onClick={() => setAdminModalOpen(true)}
+                        className="ml-2 inline-flex items-center justify-center w-10 h-10 rounded-full btn-brand-animated text-white shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                      >
+                        <span className="text-lg font-bold">+</span>
+                      </button>
+                    )}
+
+                    <button
+                      className="ml-3 font-semibold text-zinc-900 hover:text-[var(--brand-purple)] transition-colors flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                      onClick={() => setDrawer(true)}
+                    >
+                      <span className="icon-cart" />
+                      <span className="hidden md:inline">Carrito</span> ({count})
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="
+                      font-semibold text-zinc-900
+                      hover:text-[var(--brand-purple)]
+                      transition-colors
+                      flex items-center gap-1
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand
+                    "
+                    onClick={() => navigate("/login")}
+                  >
+                    <span className="icon-user" />
+                    <span className="hidden md:inline">
+                      Inicio de sesión
+                    </span>
+                  </button>
+
+                  <button
+                    className="
+                      font-semibold text-zinc-900
+                      hover:text-[var(--brand-purple)]
+                      transition-colors
+                      flex items-center gap-1
+                      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand
+                    "
+                    onClick={() => setDrawer(true)}
+                  >
+                    <span className="icon-cart" />
+                    <span className="hidden md:inline">
+                      Carrito
+                    </span>{" "}
+                    ({count})
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -471,6 +544,8 @@ useEffect(() => {
 
       {/* Drawer del carrito */}
       <MiniCartDrawer open={drawer} onClose={() => setDrawer(false)} />
+
+  <AdminModal open={adminModalOpen} onClose={()=>setAdminModalOpen(false)} onCreate={handleAdminCreate} token={auth?.token} />
 
 {/* Live region accesible (opcional) */}
 <div className="sr-only" aria-live="polite" aria-atomic="true">

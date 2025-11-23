@@ -44,6 +44,16 @@
     filter: brightness(0.98);
   }
 
+  /* Purple brand button variant (solid purple from palette) */
+  .btn-brand-purple {
+    @apply rounded-xl px-4 py-2 text-white font-medium;
+    background: var(--brand-purple);
+    transition: filter .12s ease, transform .06s ease;
+  }
+  .btn-brand-purple:hover { filter: brightness(0.95); }
+  .btn-brand-purple:active { transform: scale(.995); }
+  .btn-brand-purple:focus-visible { box-shadow: 0 0 0 4px color-mix(in oklab, var(--brand-purple) 20%, transparent); outline: none; }
+
   @keyframes waterShift {
     0%   { background-position: 0%   50%; }
     100% { background-position: 100% 50%; }
