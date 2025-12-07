@@ -3,7 +3,12 @@ import React, { useRef, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import * as catalog from "../data/catalog.js";
 import { useCart } from "../context/CartContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import { formatPEN } from "../lib/money.js";
+import { getImageUrl } from "../lib/api.js";
+import AdminArticleForm from "../components/AdminArticleForm.jsx";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 /* ------------------------- Normalizador de specs ------------------------- */
 function normalizeSpecs(specs) {
@@ -109,7 +114,7 @@ function RelatedRow({ items, onOpen }) {
               <div className="h-40 md:h-44 bg-zinc-100 rounded-xl grid place-items-center overflow-hidden">
                 {r.thumb ? (
                   <img
-                    src={r.thumb}
+                    src={`${getImageUrl(r.thumb)}?t=${r.updatedAt || r.createdAt || Date.now()}`}
                     alt={r.title}
                     loading="lazy"
                     className="max-h-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.06]"
@@ -162,15 +167,60 @@ export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { add } = useCart();
+  const auth = useAuth();
 
-  const all = [...(catalog.PRODUCTS || []), ...(catalog.SERVICES || [])];
-  const item = all.find((x) => String(x.id) === String(id));
-
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [qty, setQty] = useState(""); // vacío por defecto
+  const [editMode, setEditMode] = useState(false);
 
+  // Cargar producto del backend
   useEffect(() => {
+    async function fetchProduct() {
+      try {
+        const res = await fetch(`${API_BASE}/products/${id}`);
+        if (!res.ok) {
+          setItem(null);
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        setItem(data);
+
+        // Cargar productos relacionados por categorías
+        const allRes = await fetch(`${API_BASE}/products`);
+        const allProducts = await allRes.json();
+        
+        const itemCats = Array.isArray(data.categories) ? data.categories : (data.category ? [data.category] : []);
+        
+        // Buscar productos con categorías similares
+        const related = allProducts.filter(p => {
+          if (p.id === data.id) return false;
+          const pCats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
+          return pCats.some(cat => itemCats.includes(cat));
+        }).slice(0, 8);
+        
+        setRelatedProducts(related);
+      } catch (err) {
+        console.error("Error cargando producto:", err);
+        setItem(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchProduct();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id]);
+
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-10">
+        <div className="text-xl">Cargando...</div>
+      </div>
+    );
+  }
 
   if (!item) {
     return (
@@ -249,10 +299,6 @@ export default function ProductDetail() {
     setQty(""); // vuelve a vacío
   };
 
-  const related = !isService && item.category
-    ? (catalog.PRODUCTS || []).filter(p => p.category === item.category && p.id !== item.id).slice(0, 12)
-    : [];
-
   const summaryText =
     (item.summary && String(item.summary).trim()) ||
     "No hay resumen disponible para este producto";
@@ -268,7 +314,7 @@ export default function ProductDetail() {
          
 
           {item.thumb ? (
-            <img src={item.thumb} alt={item.title} className="max-h-[360px] object-contain p-4" />
+            <img src={`${getImageUrl(item.thumb)}?t=${item.updatedAt || item.createdAt || Date.now()}`} alt={item.title} className="max-h-[360px] object-contain p-4" />
           ) : (
             <span className="text-xs text-zinc-500">IMG</span>
           )}
@@ -285,6 +331,14 @@ export default function ProductDetail() {
               <span className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 font-bold">Agotado</span>
             ) : (
               <span className="text-xs text-emerald-600 font-bold">Stock: {stock}</span>
+            )}
+            {auth?.user?.role === "admin" && (
+              <button
+                onClick={() => setEditMode(true)}
+                className="ml-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium transition"
+              >
+                Editar
+              </button>
             )}
           </div>
 
@@ -342,17 +396,44 @@ export default function ProductDetail() {
       <SpecsTable specs={item.specs} />
 
       {/* Relacionados – carrusel */}
-      {related.length > 0 && (
+      {relatedProducts.length > 0 && (
         <section className="space-y-4">
           <h3 className="text-lg font-semibold">Relacionados</h3>
           <RelatedRow
-            items={related}
+            items={relatedProducts}
             onOpen={(rid) => {
               navigate(`/item/${encodeURIComponent(rid)}`);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           />
         </section>
+      )}
+
+      {/* Modal de edición */}
+      {editMode && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 grid place-items-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Editar producto</h2>
+              <button
+                onClick={() => setEditMode(false)}
+                className="text-zinc-500 hover:text-zinc-700 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            <AdminArticleForm
+              initial={item}
+              onCreate={(updated) => {
+                setItem(updated);
+                setEditMode(false);
+                alert("Producto actualizado exitosamente");
+              }}
+              token={auth?.token}
+              isEdit={true}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

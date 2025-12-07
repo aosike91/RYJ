@@ -1,35 +1,36 @@
 // src/context/CartContext.jsx
-import React, { createContext, useContext, useMemo, useState } from "react";
-import * as catalog from "../data/catalog.js";
+import React, { createContext, useContext, useMemo, useState, useEffect } from "react";
 
 const CartContext = createContext(null);
 
-function useStockMap() {
-  return useMemo(() => {
-    const map = Object.create(null);
-    for (const p of catalog.PRODUCTS || []) {
-      map[p.id] = typeof p.stock === "number" ? p.stock : 0;
-    }
-    for (const s of catalog.SERVICES || []) {
-      map[s.id] = Infinity;
-    }
-    return map;
-  }, []);
-}
-
 export function CartProvider({ children }) {
-  const stockById = useStockMap();
-
-  // items: [{ id, title, price, thumb, qty }]
   const [items, setItems] = useState([]);
+  const [stockMap, setStockMap] = useState({});
+
+  // Cargar stock desde la API cuando el componente se monta
+  useEffect(() => {
+    const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+    fetch(`${API_BASE}/products`)
+      .then(res => res.json())
+      .then(products => {
+        const map = Object.create(null);
+        for (const p of products) {
+          map[p.id] = typeof p.stock === "number" ? p.stock : 0;
+        }
+        setStockMap(map);
+      })
+      .catch(() => {
+        // Si falla, usar un mapa vacío
+        setStockMap({});
+      });
+  }, []);
 
   const findIndex = (id) => items.findIndex((l) => l.id === id);
-  const getStock = (id) => (stockById[id] ?? Infinity);
+  const getStock = (id) => (stockMap[id] ?? 0);
 
   const clampQty = (id, n) => {
     const stock = getStock(id);
     if (Number.isNaN(n) || n < 1) return 1;
-    if (stock === Infinity) return n;
     return Math.min(n, stock);
   };
 
@@ -37,12 +38,13 @@ export function CartProvider({ children }) {
     const id = payload.id;
     const price = Number(payload.price) || 0;
     const stock = getStock(id);
+    
     setItems((prev) => {
       const idx = prev.findIndex((l) => l.id === id);
       if (idx >= 0) {
         const curr = prev[idx].qty ?? 1;
         const next = Math.min(curr + count, stock);
-        if (next === curr && stock !== Infinity) {
+        if (next === curr && stock > 0) {
           window.dispatchEvent(new CustomEvent("cart:error", {
             detail: { title: payload.title, message: `Stock máximo: ${stock}` }
           }));
@@ -72,7 +74,7 @@ export function CartProvider({ children }) {
       )
     );
     const it = items.find((x) => x.id === id);
-    if (it && (it.qty ?? 1) >= stock && stock !== Infinity) {
+    if (it && (it.qty ?? 1) >= stock && stock > 0) {
       window.dispatchEvent(new CustomEvent("cart:error", {
         detail: { title: it.title, message: `Stock máximo: ${stock}` }
       }));
@@ -113,7 +115,7 @@ export function CartProvider({ children }) {
   const value = {
     items, add, incQty, decQty, setQty, remove,
     subtotal, count,
-    getStock, // por si lo quieres en UI
+    getStock,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

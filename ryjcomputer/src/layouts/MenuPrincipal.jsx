@@ -5,6 +5,7 @@ import { CATEGORIES, MANTENIMIENTO, REPARACION } from "../data/catalog.js";
 import Dropdown from "../components/Dropdown.jsx";
 import LogoButton from "../components/LogoButton.jsx";
 import MiniCartDrawer from "../components/MiniCartDrawer.jsx";
+import { getImageUrl } from "../lib/api.js";
 import Logo from "../assets/Logo.png";
 
 
@@ -71,8 +72,6 @@ function FloatingCartButton({ count, onClick, className = "" }) {
 /* --------- Layout principal --------- */
 import ScrollToTop from "../components/ScrollToTop.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-import AdminModal from "../components/AdminModal.jsx";
-import { createProduct } from "../lib/api.js";
 
 export default function MenuPrincipal() {
   const { count } = useCart();
@@ -92,30 +91,70 @@ export default function MenuPrincipal() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
   const auth = useAuth();
-  const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  
+  // Buscador
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchRef = useRef(null);
 
-  async function handleAdminCreate(prod) {
-    if (!auth?.token) return alert('No autorizado');
-    try{
-      const res = await createProduct(prod, auth.token);
-      console.log('created', res);
-      // optionally show toast
-      const ev = new CustomEvent('cart:add', { detail: { title: res.title || 'Artículo creado', thumb: res.thumb || null } });
-      window.dispatchEvent(ev);
-      return res;
-    }catch(err){
-      console.error(err);
-      alert('Error al crear');
+  // Cerrar resultados al hacer clic fuera
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSearchResults(false);
+      }
     }
-  }
-
-  // listen for global event to open admin modal (used by profile shortcuts)
-  useEffect(()=>{
-    const onOpen = ()=> setAdminModalOpen(true);
-    window.addEventListener('open:admin', onOpen);
-    return ()=> window.removeEventListener('open:admin', onOpen);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Buscar productos
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+      const res = await fetch(`${API_BASE}/products`);
+      const allProducts = await res.json();
+
+      const q = query.toLowerCase();
+      
+      // Buscar por nombre
+      const byName = allProducts.filter(p => 
+        p.title?.toLowerCase().includes(q)
+      );
+
+      // Buscar por categorías
+      const byCategory = allProducts.filter(p => {
+        const cats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
+        return cats.some(cat => cat.toLowerCase().includes(q));
+      });
+
+      // Combinar y eliminar duplicados
+      const combined = [...new Map([...byName, ...byCategory].map(p => [p.id, p])).values()];
+      
+      setSearchResults(combined.slice(0, 5)); // Máximo 5 resultados
+      setShowSearchResults(true);
+    } catch (err) {
+      console.error("Error buscando:", err);
+    }
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+      setShowSearchResults(false);
+      setSearchQuery("");
+    }
+  };
 
 // Toasts: éxito (cart:add) y error (cart:error)
 useEffect(() => {
@@ -224,11 +263,14 @@ useEffect(() => {
 
           {/* Búsqueda + iconos */}
           <div className="flex items-center gap-3 w-full">
-            <form className="flex-1">
+            <form onSubmit={handleSearchSubmit} className="flex-1 relative" ref={searchRef}>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Búsqueda en catálogo"
+                  placeholder="Buscar productos..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  onFocus={() => searchQuery && setShowSearchResults(true)}
                   className="
                     w-full border border-zinc-300 rounded-lg
                     py-2 pl-4 pr-10 text-sm
@@ -256,6 +298,44 @@ useEffect(() => {
                   </svg>
                 </button>
               </div>
+
+              {/* Resultados de búsqueda */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="absolute z-50 mt-2 w-full bg-white border rounded-lg shadow-lg max-h-96 overflow-y-auto">
+                  {searchResults.map((product) => (
+                    <button
+                      key={product.id}
+                      onClick={() => {
+                        navigate(`/item/${product.id}`);
+                        setShowSearchResults(false);
+                        setSearchQuery("");
+                      }}
+                      className="w-full flex items-center gap-3 p-3 hover:bg-zinc-50 text-left border-b last:border-b-0"
+                    >
+                      <div className="w-16 h-16 bg-zinc-100 rounded overflow-hidden flex-shrink-0">
+                        {product.thumb ? (
+                          <img src={`${getImageUrl(product.thumb)}?t=${product.updatedAt || product.createdAt || Date.now()}`} alt={product.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-zinc-400 text-xs">IMG</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm line-clamp-2">{product.title}</div>
+                        <div className="text-xs text-zinc-500 mt-1">
+                          {Array.isArray(product.categories) ? product.categories.slice(0, 3).join(", ") : product.category || "Sin categoría"}
+                        </div>
+                        <div className="text-sm font-semibold text-brand-purple mt-1">S/ {product.price?.toFixed(2)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {showSearchResults && searchQuery && searchResults.length === 0 && (
+                <div className="absolute z-50 mt-2 w-full bg-white border rounded-lg shadow-lg p-4 text-center text-sm text-zinc-500">
+                  No se encontraron productos
+                </div>
+              )}
             </form>
 
             <div className="flex items-center gap-3">
@@ -275,7 +355,7 @@ useEffect(() => {
                         }
                         if (it === 'Ver perfil') return navigate('/profile');
                         if (it === 'Mi wishlist') return navigate('/profile/wishlist');
-                        if (it === 'Añadir artículos') return setAdminModalOpen(true);
+                        if (it === 'Añadir artículos') return navigate('/admin');
                       }}
                       labelClassName="text-sm font-medium"
                       itemClassName="text-sm"
@@ -284,7 +364,7 @@ useEffect(() => {
                     {auth.user.role === 'admin' && (
                       <button
                         title="Agregar artículo"
-                        onClick={() => setAdminModalOpen(true)}
+                        onClick={() => navigate('/admin')}
                         className="ml-2 inline-flex items-center justify-center w-10 h-10 rounded-full btn-brand-animated text-white shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                       >
                         <span className="text-lg font-bold">+</span>
@@ -545,8 +625,6 @@ useEffect(() => {
       {/* Drawer del carrito */}
       <MiniCartDrawer open={drawer} onClose={() => setDrawer(false)} />
 
-  <AdminModal open={adminModalOpen} onClose={()=>setAdminModalOpen(false)} onCreate={handleAdminCreate} token={auth?.token} />
-
 {/* Live region accesible (opcional) */}
 <div className="sr-only" aria-live="polite" aria-atomic="true">
   {toast ? `Añadido al carrito: ${toast.title}` : ""}
@@ -569,7 +647,7 @@ useEffect(() => {
         {toast.kind !== "error" ? (
           toast.thumb ? (
             <img
-              src={toast.thumb}
+              src={`${getImageUrl(toast.thumb)}?t=${Date.now()}`}
               alt=""
               className="w-9 h-9 rounded-md object-cover border border-zinc-200"
             />

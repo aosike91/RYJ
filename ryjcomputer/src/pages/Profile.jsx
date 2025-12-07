@@ -53,7 +53,7 @@ export default function ProfilePage(){
 
               {isAdmin && (
                 <>
-                  <Card title="Añadir artículos" onClick={()=>window.dispatchEvent(new CustomEvent('open:admin'))} />
+                  <Card title="Añadir artículos" onClick={()=>navigate('/admin')} />
                 </>
               )}
             </div>

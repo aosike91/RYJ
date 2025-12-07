@@ -1,5 +1,19 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
+export function getImageUrl(imagePath) {
+  if (!imagePath) return '';
+  // Si ya es una URL completa, devolverla tal cual
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  // Si empieza con /, es una ruta relativa, agregarle la base URL
+  if (imagePath.startsWith('/')) {
+    return `${API_BASE}${imagePath}`;
+  }
+  // Si no, asumir que es una ruta relativa y agregarle /uploads
+  return `${API_BASE}/uploads/${imagePath}`;
+}
+
 export async function login(email, password) {
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -49,4 +63,16 @@ export async function uploadProductImage(productId, file, token) {
   return res.json();
 }
 
-export default { login, register, createProduct };
+export async function updateProduct(productId, product, token) {
+  const res = await fetch(`${API_BASE}/products/${encodeURIComponent(productId)}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : undefined,
+    },
+    body: JSON.stringify(product),
+  });
+  return res.json();
+}
+
+export default { login, register, createProduct, updateProduct, uploadProductImage };

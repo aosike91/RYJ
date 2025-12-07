@@ -12,6 +12,8 @@ import Pagos from "./pages/Pagos.jsx";
 import Reclamaciones from "./pages/Reclamaciones.jsx";
 import ProductDetail from "./pages/ProductDetail.jsx";
 import Profile from "./pages/Profile.jsx";
+import Admin from "./pages/Admin.jsx";
+import SearchResults from "./pages/SearchResults.jsx";
 
 export default function App() {
   return (
@@ -28,6 +30,8 @@ export default function App() {
             <Route path="pagos" element={<Pagos />} />
             <Route path="reclamaciones" element={<Reclamaciones />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="admin" element={<Admin />} />
+            <Route path="search" element={<SearchResults />} />
             <Route path="/item/:id" element={<ProductDetail />} />
           </Route>
         </Routes>

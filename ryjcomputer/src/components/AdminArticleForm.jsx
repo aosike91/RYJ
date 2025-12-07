@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from "react";
-import { createProduct, uploadProductImage } from "../lib/api.js";
+import React, { useEffect, useState, useRef } from "react";
+import { createProduct, uploadProductImage, updateProduct } from "../lib/api.js";
+import CategorySelector from "./CategorySelector.jsx";
+import SpecsSelector from "./SpecsSelector.jsx";
 
-export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, token, isPreview=false }) {
+export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, token, isPreview=false, isEdit=false }) {
+  const initialRef = useRef(initial);
+  const fileInputId = useRef(`file-upload-${Math.random().toString(36).substr(2, 9)}`).current;
   const [form, setForm] = useState({
-    id: initial.id || '',
     title: initial.title || '',
     price: initial.price || 0,
     stock: initial.stock || 0,
-    category: initial.category || '',
+    categories: initial.categories || (initial.category ? [initial.category] : []),
     featured: !!initial.featured,
     summary: initial.summary || '',
     description: initial.description || '',
@@ -17,18 +20,22 @@ export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, toke
   const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(()=>{
-    setForm({
-      id: initial.id || '',
-      title: initial.title || '',
-      price: initial.price || 0,
-      stock: initial.stock || 0,
-      category: initial.category || '',
-      featured: !!initial.featured,
-      summary: initial.summary || '',
-      description: initial.description || '',
-      specs: initial.specs || {},
-      thumb: initial.thumb || '',
-    })
+    // Solo actualizar si el initial.id cambió (nuevo producto en bulk)
+    if (initialRef.current !== initial && initial.id !== initialRef.current.id) {
+      initialRef.current = initial;
+      setForm({
+        title: initial.title || '',
+        price: initial.price || 0,
+        stock: initial.stock || 0,
+        categories: initial.categories || (initial.category ? [initial.category] : []),
+        featured: !!initial.featured,
+        summary: initial.summary || '',
+        description: initial.description || '',
+        specs: initial.specs || {},
+        thumb: initial.thumb || '',
+      });
+      setSelectedFile(null);
+    }
   }, [initial]);
 
   return (
@@ -50,10 +57,37 @@ export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, toke
           <input type="number" value={form.stock} onChange={e=>setForm(s=>({...s,stock:parseInt(e.target.value||0)}))} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="text-sm">Categoría</label>
-          <input value={form.category} onChange={e=>setForm(s=>({...s,category:e.target.value}))} className="mt-1 w-full border rounded px-3 py-2" />
+          <label className="text-sm font-medium mb-2 block">Destacado</label>
+          <label className="inline-flex items-center mt-1">
+            <input
+              type="checkbox"
+              checked={form.featured}
+              onChange={e=>setForm(s=>({...s,featured:e.target.checked}))}
+              className="w-4 h-4"
+            />
+            <span className="ml-2 text-sm">Mostrar en destacados</span>
+          </label>
         </div>
       </div>
+
+      <div>
+        <label className="text-sm font-medium mb-2 block">Categorías</label>
+        <CategorySelector
+          selected={form.categories}
+          onChange={(cats) => setForm(s => ({...s, categories: cats}))}
+        />
+      </div>
+
+      {form.categories.length > 0 && (
+        <div>
+          <label className="text-sm font-medium mb-2 block">Especificaciones</label>
+          <SpecsSelector
+            categories={form.categories}
+            specs={form.specs}
+            onChange={(newSpecs) => setForm(s => ({...s, specs: newSpecs}))}
+          />
+        </div>
+      )}
 
       <div>
         <label className="text-sm">Resumen</label>
@@ -65,30 +99,29 @@ export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, toke
         <textarea value={form.description} onChange={e=>setForm(s=>({...s,description:e.target.value}))} className="mt-1 w-full border rounded px-3 py-2" rows={4} />
       </div>
 
-      <div>
-        <label className="text-sm">Specs (JSON)</label>
-        <textarea value={JSON.stringify(form.specs,null,2)} onChange={e=>{
-          try{
-            const obj = JSON.parse(e.target.value);
-            setForm(s=>({...s,specs:obj}));
-          }catch(err){
-            // ignore parse errors while typing
-            setForm(s=>({...s}));
-          }
-        }} className="mt-1 w-full border rounded px-3 py-2" rows={5} />
-      </div>
-
       <div className="grid md:grid-cols-2 gap-3 items-center">
         <div>
           <label className="text-sm">Imagen (URL o cargar)</label>
           <input type="text" value={form.thumb} onChange={e=>setForm(s=>({...s,thumb:e.target.value}))} className="mt-1 w-full border rounded px-3 py-2" placeholder="/uploads/imagen.jpg o https://..." />
-          <input type="file" accept="image/*" onChange={async (e)=>{
-            const f = e.target.files?.[0];
-            if(!f) return;
-            const url = URL.createObjectURL(f);
-            setForm(s=>({...s,thumb:url}));
-            setSelectedFile(f);
-          }} className="mt-2" />
+          <div className="mt-3">
+            <label htmlFor={fileInputId} className="inline-block px-4 py-2 bg-blue-600 text-white rounded font-semibold cursor-pointer hover:bg-blue-700 transition-colors">
+              📁 Seleccionar imagen
+            </label>
+            <input 
+              id={fileInputId}
+              type="file" 
+              accept="image/*" 
+              onChange={async (e)=>{
+                const f = e.target.files?.[0];
+                if(!f) return;
+                const url = URL.createObjectURL(f);
+                setForm(s=>({...s,thumb:url}));
+                setSelectedFile(f);
+              }} 
+              className="hidden"
+            />
+            {selectedFile && <span className="ml-3 text-sm text-green-600 font-medium">✓ {selectedFile.name}</span>}
+          </div>
         </div>
 
         <div className="p-3 border rounded">
@@ -110,29 +143,49 @@ export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, toke
           if(!token) return alert('No autorizado');
           try{
             const payload = { ...form };
-            // create product first
-            const res = await createProduct(payload, token);
-            if (!res || !res.id) {
-              alert('Error al crear: '+(res?.message||JSON.stringify(res)));
-              return;
-            }
-            const created = res;
-            // if an image was selected, upload it
-            if (selectedFile) {
-              const up = await uploadProductImage(created.id, selectedFile, token);
-              if (up && up.url) {
-                // update local form thumb to server url
-                setForm(s=>({...s, thumb: up.url}));
-                created.thumb = up.url;
+            
+            if (isEdit) {
+              // Actualizar producto existente
+              const res = await updateProduct(initial.id, payload, token);
+              if (!res || !res.ok) {
+                alert('Error al actualizar: '+(res?.message||JSON.stringify(res)));
+                return;
               }
+              let updatedProduct = { ...initial, ...payload };
+              // Si una imagen fue seleccionada, subirla
+              if (selectedFile) {
+                const up = await uploadProductImage(initial.id, selectedFile, token);
+                if (up && up.url) {
+                  updatedProduct.thumb = up.url;
+                }
+              }
+              alert('Producto actualizado');
+              onCreate(updatedProduct);
+            } else {
+              // Crear nuevo producto
+              const res = await createProduct(payload, token);
+              if (!res || !res.id) {
+                alert('Error al crear: '+(res?.message||JSON.stringify(res)));
+                return;
+              }
+              const created = res;
+              // if an image was selected, upload it
+              if (selectedFile) {
+                const up = await uploadProductImage(created.id, selectedFile, token);
+                if (up && up.url) {
+                  // update local form thumb to server url
+                  setForm(s=>({...s, thumb: up.url}));
+                  created.thumb = up.url;
+                }
+              }
+              alert('Producto creado');
+              onCreate(created);
             }
-            alert('Producto creado');
-            onCreate(created);
           }catch(err){
             console.error(err);
-            alert('Error al crear');
+            alert('Error: ' + err.message);
           }
-        }} className="px-4 py-2 bg-emerald-600 text-white rounded">Crear</button>}
+        }} className="px-4 py-2 bg-emerald-600 text-white rounded">{isEdit ? 'Actualizar' : 'Crear'}</button>}
 
         <button onClick={()=>onCreate(form)} className="px-4 py-2 bg-zinc-100 rounded">Guardar local</button>
       </div>

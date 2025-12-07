@@ -1,23 +1,52 @@
 // src/components/MiniCartDrawer.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext.jsx";
 import { formatPEN } from "../lib/money.js";
+import { getImageUrl } from "../lib/api.js";
 import * as catalog from "../data/catalog.js";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function MiniCartDrawer({ open, onClose }) {
   const { items, remove, subtotal, incQty, decQty, setQty } = useCart();
   const navigate = useNavigate();
+  const [stockByIdBackend, setStockByIdBackend] = useState({});
 
-  // stock por id
+  // Cargar stock del backend
+  useEffect(() => {
+    async function fetchStock() {
+      try {
+        const res = await fetch(`${API_BASE}/products`);
+        const products = await res.json();
+        const map = Object.create(null);
+        for (const p of (products || [])) {
+          map[p.id] = typeof p.stock === "number" ? p.stock : Infinity;
+        }
+        setStockByIdBackend(map);
+      } catch (err) {
+        console.error("Error fetching stock:", err);
+      }
+    }
+    if (open) {
+      fetchStock();
+    }
+  }, [open]);
+
+  // stock por id (primero backend, luego catálogo local)
   const stockById = useMemo(() => {
     const map = Object.create(null);
+    // Intentar obtener del backend primero
+    for (const id in stockByIdBackend) {
+      map[id] = stockByIdBackend[id];
+    }
+    // Si no está en backend, usar catálogo local como fallback
     for (const p of (catalog.PRODUCTS || []))
-      map[p.id] = typeof p.stock === "number" ? p.stock : 0;
+      if (!(p.id in map)) map[p.id] = typeof p.stock === "number" ? p.stock : 0;
     for (const s of (catalog.SERVICES || []))
-      map[s.id] = Infinity;
+      if (!(s.id in map)) map[s.id] = Infinity;
     return map;
-  }, []);
+  }, [stockByIdBackend]);
 
   const clamp = (id, n) => {
     const stock = stockById[id] ?? Infinity;
@@ -81,7 +110,7 @@ export default function MiniCartDrawer({ open, onClose }) {
                 {/* thumb */}
                 <div className="h-14 w-20 bg-zinc-100 rounded overflow-hidden grid place-items-center flex-shrink-0">
                   {it.thumb ? (
-                    <img src={it.thumb} alt={it.title} className="w-full h-full object-cover" />
+                    <img src={`${getImageUrl(it.thumb)}?t=${it.updatedAt || it.createdAt || Date.now()}`} alt={it.title} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-[10px] text-zinc-500">IMG</span>
                   )}

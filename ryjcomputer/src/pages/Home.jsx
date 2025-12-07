@@ -1,12 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import * as catalog from "../data/catalog.js";
 import { useCart } from "../context/CartContext.jsx";
 import { formatPEN } from "../lib/money.js";
-
-// Datos
-const PRODUCTS = catalog.PRODUCTS || [];
-const SERVICES = catalog.SERVICES || [];
+import { getImageUrl } from "../lib/api.js";
+import * as catalog from "../data/catalog.js";
 
 // Carrusel principal (assets)
 import Anuncio1 from "../assets/Anuncio1.jpg";
@@ -14,6 +11,7 @@ import Anuncio2 from "../assets/Anuncio2.jpg";
 import Anuncio3 from "../assets/Anuncio3.jpg";
 import LateralVideo from "../assets/Video1.mp4";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const carouselImages = [Anuncio1, Anuncio2, Anuncio3];
 
 /** Botón con animación de “press” (usa tu animate-press-once) */
@@ -106,48 +104,52 @@ function Card({ item, add, navigate }) {
   };
 
   return (
-    <div
-      className="group h-full border rounded-2xl p-4 bg-white transition hover:shadow-xl cursor-pointer
-                 flex flex-col"
-      onClick={goDetail}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => (e.key === "Enter" ? goDetail() : null)}
-    >
-      {/* Imagen (altura fija) */}
-      <div className="h-36 bg-zinc-100 rounded-xl grid place-items-center mb-3 overflow-hidden">
-        {item.thumb ? (
-          <img
-            src={item.thumb}
-            alt={item.title}
-            className="max-h-36 object-contain p-2 transition-transform duration-200 group-hover:scale-[1.06]"
-            loading="lazy"
-          />
-        ) : <span className="text-[10px] text-zinc-500">IMG</span>}
+    <div className="group relative bg-white rounded-2xl border border-zinc-200 overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
+      <div
+        onClick={goDetail}
+        className="cursor-pointer flex-1 flex flex-col"
+      >
+        <div className="relative h-48 bg-zinc-100 grid place-items-center overflow-hidden">
+          {item.thumb ? (
+            <img
+              src={`${getImageUrl(item.thumb)}?t=${item.updatedAt || item.createdAt || Date.now()}`}
+              alt={item.title}
+              className="max-h-full object-contain p-4 transition-transform duration-200 group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <span className="text-sm text-zinc-400">IMG</span>
+          )}
+          {out && (
+            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+              Agotado
+            </div>
+          )}
+        </div>
+        <div className="p-4 space-y-2 flex-1 flex flex-col">
+          <h3 className="font-semibold text-sm line-clamp-2 min-h-[2.5rem]">
+            {item.title}
+          </h3>
+          <p className="text-xs text-zinc-500 line-clamp-1">
+            {Array.isArray(item.categories) ? item.categories.slice(0, 2).join(", ") : item.category || ""}
+          </p>
+          <div className="flex items-center justify-between mt-auto">
+            <div className="text-xl font-bold text-brand-purple">
+              {formatPEN(price)}
+            </div>
+            {isService ? (
+              <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-bold">
+                Disponible
+              </span>
+            ) : out ? null : (
+              <span className="text-xs text-emerald-600 font-bold">Stock: {stock}</span>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Título (min-height para 2 líneas) */}
-      <h3 className="font-semibold min-h-[3rem] text-sm line-clamp-2">{item.title}</h3>
-
-      {/* Precio + stock */}
-      <div className="mt-2 flex items-center justify-between">
-        <p className="text-brand font-bold">{formatPEN(price)}</p>
-        {isService ? (
-          <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-bold">
-            Disponible
-          </span>
-        ) : out ? (
-          <span className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 font-bold">
-            Agotado
-          </span>
-        ) : (
-          <span className="text-xs text-emerald-600 font-bold">Stock: {stock}</span>
-        )}
-      </div>
-
-      {/* Fila reservada para stepper (altura constante) */}
-      <div className="mt-3 min-h-[2.5rem] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-        {!isService ? (
+      <div className="px-4 pb-4 space-y-2" onClick={(e) => e.stopPropagation()}>
+        {!isService && (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -178,21 +180,19 @@ function Card({ item, add, navigate }) {
               +
             </button>
           </div>
-        ) : (
-          // placeholder para igualar altura cuando no hay stepper
-          <div className="h-8" />
         )}
-      </div>
 
-      {/* Botón (queda al final) */}
-      <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-        <PressButton
-          className={`w-full btn-brand btn-brand-animated btn-press text-sm font-semibold
-                     ${out ? "opacity-60 cursor-not-allowed" : ""}`}
+        <button
           onClick={handleAdd}
+          disabled={out}
+          className={`w-full py-2 rounded-lg font-medium transition btn-brand-animated text-white ${
+            out
+              ? "opacity-60 cursor-not-allowed"
+              : ""
+          }`}
         >
-          Añadir al carrito
-        </PressButton>
+          {out ? "Sin stock" : "Añadir al carrito"}
+        </button>
       </div>
     </div>
   );
@@ -296,14 +296,49 @@ function FeaturedRow({ title, items, add, navigate }) {
 export default function Home() {
   const { add } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Estado para productos del backend
+  const [products, setProducts] = useState([]);
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Cargar productos del backend
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const res = await fetch(`${API_BASE}/products`);
+        const data = await res.json();
+        
+        // Separar productos y servicios
+        const prods = data.filter(p => p.kind === 'product' || !p.kind);
+        const servs = data.filter(p => p.kind === 'service');
+        
+        setProducts(prods);
+        setServices(servs);
+      } catch (err) {
+        console.error('Error cargando productos:', err);
+        // Fallback al catálogo estático
+        setProducts(catalog.PRODUCTS || []);
+        setServices(catalog.SERVICES || []);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProducts();
+  }, []);
 
   // Parámetros de filtro
-  const params = new URLSearchParams(useLocation().search);
+  const params = new URLSearchParams(location.search);
   const selectedCat = params.get("categoria");
   const selectedMant = params.get("mantenimiento");
   const selectedRep = params.get("reparacion");
 
-  const list = selectedCat ? PRODUCTS.filter((p) => p.category === selectedCat) : PRODUCTS;
+  const list = selectedCat ? products.filter((p) => {
+    // Buscar en categorías si es array, o en category si es string
+    const cats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
+    return cats.includes(selectedCat);
+  }) : products;
 
   // Carrusel grande (anuncios)
   const [index, setIndex] = useState(0);
@@ -311,8 +346,19 @@ export default function Home() {
   const next = () => setIndex((i) => (i === carouselImages.length - 1 ? 0 : i + 1));
 
   // Destacados
-  const featuredMain = [...PRODUCTS, ...SERVICES].filter((i) => i?.featured);
-  const featuredBy = (cat) => PRODUCTS.filter((p) => p.category === cat && p?.featured);
+  const featuredMain = [...products, ...services].filter((i) => i?.featured);
+  const featuredBy = (cat) => products.filter((p) => {
+    const cats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
+    return cats.includes(cat) && p?.featured;
+  });
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
+        <div className="text-xl">Cargando productos...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 space-y-10">
@@ -378,14 +424,14 @@ export default function Home() {
       {/* Destacado principal */}
       <FeaturedRow
         title="Destacado principal"
-        items={[...PRODUCTS, ...SERVICES].filter((i) => i?.featured)}
+        items={featuredMain}
         add={add}
         navigate={navigate}
       />
 
       {/* Destacados por tipo */}
-      {["Laptops", "Impresoras", "Accesorios"].map((cat) => {
-        const items = PRODUCTS.filter((p) => p.category === cat && p?.featured);
+      {["Laptop", "Impresoras", "Accesorios"].map((cat) => {
+        const items = featuredBy(cat);
         if (!items.length) return null;
         return (
           <FeaturedRow
