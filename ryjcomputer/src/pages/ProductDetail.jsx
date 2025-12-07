@@ -101,34 +101,66 @@ function RelatedRow({ items, onOpen }) {
         className="rel-track -mx-3 px-3 flex items-stretch overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
         style={{ scrollSnapType: "x mandatory" }}
       >
-        {items.map((r) => (
-          <div key={r.id} className="rel-item snap-start flex-none">
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => onOpen?.(r.id)}
-              onKeyDown={(e) => (e.key === "Enter" ? onOpen?.(r.id) : null)}
-              className="group cursor-pointer select-none rounded-2xl border bg-white p-3 hover:shadow-xl transition
-                         h-[320px] md:h-[340px] xl:h-[360px] flex flex-col"
-            >
-              <div className="h-40 md:h-44 bg-zinc-100 rounded-xl grid place-items-center overflow-hidden">
-                {r.thumb ? (
-                  <img
-                    src={`${getImageUrl(r.thumb)}?t=${r.updatedAt || r.createdAt || Date.now()}`}
-                    alt={r.title}
-                    loading="lazy"
-                    className="max-h-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.06]"
-                  />
-                ) : (
-                  <span className="text-[10px] text-zinc-500">IMG</span>
-                )}
+        {items.map((r) => {
+          const stock = r.stock ?? 0;
+          const out = stock === 0;
+          const isService = !r.stock;
+          return (
+            <div key={r.id} className="rel-item snap-start flex-none">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpen?.(r.id)}
+                onKeyDown={(e) => (e.key === "Enter" ? onOpen?.(r.id) : null)}
+                className="group cursor-pointer select-none rounded-2xl border border-zinc-200 bg-white hover:shadow-xl transition
+                           flex flex-col h-full"
+              >
+                <div className="h-40 md:h-44 bg-zinc-100 rounded-xl grid place-items-center overflow-hidden">
+                  {r.thumb ? (
+                    <img
+                      src={`${getImageUrl(r.thumb)}?t=${r.updatedAt || r.createdAt || Date.now()}`}
+                      alt={r.title}
+                      loading="lazy"
+                      className="max-h-full object-contain p-2 transition-transform duration-200 group-hover:scale-[1.06]"
+                    />
+                  ) : (
+                    <span className="text-[10px] text-zinc-500">IMG</span>
+                  )}
+                  {out && (
+                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+                      Agotado
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 space-y-2 flex-1 flex flex-col">
+                  <h3 className="font-semibold text-sm line-clamp-2 min-h-[2rem]">
+                    {r.title}
+                  </h3>
+                  <p className="text-xs text-zinc-500 line-clamp-1">
+                    {Array.isArray(r.categories) ? r.categories.slice(0, 2).join(", ") : r.category || ""}
+                  </p>
+                  {r.summary && (
+                    <p className="text-xs text-zinc-600 line-clamp-2">
+                      {r.summary}
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between gap-2 mt-auto flex-wrap">
+                    <div className="text-sm font-bold text-brand-purple">
+                      {formatPEN(r.price)}
+                    </div>
+                    {isService ? (
+                      <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-bold">
+                        Disponible
+                      </span>
+                    ) : out ? null : (
+                      <span className="text-xs text-emerald-600 font-bold whitespace-nowrap">Stock: {stock}</span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <p className="mt-3 text-sm font-medium line-clamp-2 min-h-[3rem]">{r.title}</p>
-              <div className="mt-auto" />
-              <p className="text-sm font-bold text-brand">{formatPEN(r.price)}</p>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
 <button
@@ -174,6 +206,7 @@ export default function ProductDetail() {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [qty, setQty] = useState(""); // vacío por defecto
   const [editMode, setEditMode] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   // Cargar producto del backend
   useEffect(() => {
@@ -299,6 +332,34 @@ export default function ProductDetail() {
     setQty(""); // vuelve a vacío
   };
 
+  const handleDeleteProduct = async () => {
+    if (!auth?.token) {
+      alert("No tienes permisos para eliminar");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/products/${item.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${auth.token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error: ${res.status}`);
+      }
+
+      alert("Producto eliminado exitosamente");
+      setDeleteConfirm(false);
+      navigate("/");
+    } catch (err) {
+      console.error("Error eliminando producto:", err);
+      alert("Error al eliminar el producto: " + err.message);
+    }
+  };
+
   const summaryText =
     (item.summary && String(item.summary).trim()) ||
     "No hay resumen disponible para este producto";
@@ -333,12 +394,20 @@ export default function ProductDetail() {
               <span className="text-xs text-emerald-600 font-bold">Stock: {stock}</span>
             )}
             {auth?.user?.role === "admin" && (
-              <button
-                onClick={() => setEditMode(true)}
-                className="ml-auto px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium transition"
-              >
-                Editar
-              </button>
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={() => setEditMode(true)}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium transition"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => setDeleteConfirm(true)}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded font-medium transition"
+                >
+                  Eliminar
+                </button>
+              </div>
             )}
           </div>
 
@@ -432,6 +501,32 @@ export default function ProductDetail() {
               token={auth?.token}
               isEdit={true}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 grid place-items-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 className="text-2xl font-bold">¿Desea eliminar el producto?</h2>
+            <p className="text-zinc-600">
+              Esta acción no se puede deshacer. Se eliminará "{item.title}" del catálogo.
+            </p>
+            <div className="flex gap-3 justify-end pt-4">
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 rounded font-medium transition"
+              >
+                Rechazar
+              </button>
+              <button
+                onClick={handleDeleteProduct}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded font-medium transition"
+              >
+                Aceptar
+              </button>
+            </div>
           </div>
         </div>
       )}

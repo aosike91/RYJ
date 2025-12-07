@@ -133,7 +133,7 @@ function Card({ item, add, navigate }) {
           <p className="text-xs text-zinc-500 line-clamp-1">
             {Array.isArray(item.categories) ? item.categories.slice(0, 2).join(", ") : item.category || ""}
           </p>
-          <div className="flex items-center justify-between mt-auto">
+          <div className="flex items-center justify-between gap-2 mt-auto flex-wrap">
             <div className="text-xl font-bold text-brand-purple">
               {formatPEN(price)}
             </div>
@@ -142,7 +142,7 @@ function Card({ item, add, navigate }) {
                 Disponible
               </span>
             ) : out ? null : (
-              <span className="text-xs text-emerald-600 font-bold">Stock: {stock}</span>
+              <span className="text-xs text-emerald-600 font-bold whitespace-nowrap">Stock: {stock}</span>
             )}
           </div>
         </div>
