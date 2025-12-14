@@ -63,7 +63,7 @@ function SpecsTable({ specs }) {
 }
 
 /* -------- Carrusel de relacionados: 2 en móvil, 3 en md, 4 en lg; flechas visibles en móvil ----- */
-function RelatedRow({ items, onOpen }) {
+function RelatedRow({ items, onOpen, isAdmin = false }) {
   const trackRef = React.useRef(null);
 
   const scrollByCards = (dir = 1) => {
@@ -129,6 +129,11 @@ function RelatedRow({ items, onOpen }) {
                   {out && (
                     <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
                       Agotado
+                    </div>
+                  )}
+                  {isAdmin && r.outOfStock && (
+                    <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded font-semibold">
+                      Fuera de Stock
                     </div>
                   )}
                 </div>
@@ -225,14 +230,42 @@ export default function ProductDetail() {
         const allRes = await fetch(`${API_BASE}/products`);
         const allProducts = await allRes.json();
         
+        const isAdminUser = auth?.user?.role === "admin";
+        // Filtrar productos que no están "Fuera de Stock" (a menos que sea admin)
+        const availableProducts = isAdminUser ? allProducts : allProducts.filter(p => !p.outOfStock);
+        
         const itemCats = Array.isArray(data.categories) ? data.categories : (data.category ? [data.category] : []);
         
-        // Buscar productos con categorías similares
-        const related = allProducts.filter(p => {
-          if (p.id === data.id) return false;
-          const pCats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
-          return pCats.some(cat => itemCats.includes(cat));
-        }).slice(0, 8);
+        // Función para calcular score de coincidencia
+        const calculateScore = (product) => {
+          if (product.id === data.id) return -1; // Excluir el producto actual
+          
+          const pCats = Array.isArray(product.categories) ? product.categories : (product.category ? [product.category] : []);
+          
+          // Si no hay categorías en común, score = 0
+          if (!pCats.some(cat => itemCats.includes(cat))) return 0;
+          
+          // Contar categorías coincidentes
+          const matchingCategories = pCats.filter(cat => itemCats.includes(cat)).length;
+          
+          // Score base: número de categorías coincidentes (máximo 100 puntos)
+          let score = matchingCategories * 10;
+          
+          // Bonus: si la primera categoría es la misma (supercategoría principal)
+          if (itemCats.length > 0 && pCats.length > 0 && itemCats[0] === pCats[0]) {
+            score += 50;
+          }
+          
+          return score;
+        };
+        
+        // Buscar productos con categorías similares, calcular score y ordenar
+        const related = availableProducts
+          .map(p => ({ product: p, score: calculateScore(p) }))
+          .filter(item => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6)
+          .map(item => item.product);
         
         setRelatedProducts(related);
       } catch (err) {
@@ -360,6 +393,35 @@ export default function ProductDetail() {
     }
   };
 
+  const handleToggleOutOfStock = async () => {
+    if (!auth?.token) {
+      alert("No tienes permisos");
+      return;
+    }
+
+    try {
+      const updated = { ...item, outOfStock: !item.outOfStock };
+      const res = await fetch(`${API_BASE}/products/${item.id}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${auth.token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(updated)
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error: ${res.status}`);
+      }
+
+      setItem(updated);
+      alert(updated.outOfStock ? "Producto marcado como Agotado" : "Producto disponible nuevamente");
+    } catch (err) {
+      console.error("Error:", err);
+      alert("Error al actualizar: " + err.message);
+    }
+  };
+
   const summaryText =
     (item.summary && String(item.summary).trim()) ||
     "No hay resumen disponible para este producto";
@@ -384,6 +446,25 @@ export default function ProductDetail() {
         <div className="space-y-3">
           <h1 className="text-2xl font-bold">{item.title}</h1>
 
+          {item.condition && (
+            <div className="inline-block">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                item.condition === 'nuevo' 
+                  ? 'bg-green-100 text-green-800' 
+                  : item.condition === 'seminuevo'
+                  ? 'bg-blue-100 text-blue-800'
+                  : item.condition === 'desegunda'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-purple-100 text-purple-800'
+              }`}>
+                {item.condition === 'nuevo' && '✓ Nuevo'}
+                {item.condition === 'seminuevo' && '✓ Seminuevo'}
+                {item.condition === 'desegunda' && '✓ De segunda'}
+                {item.condition === 'importada' && '✓ Importada'}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <p className="text-2xl font-extrabold text-brand">{formatPEN(price)}</p>
             {isService ? (
@@ -395,6 +476,16 @@ export default function ProductDetail() {
             )}
             {auth?.user?.role === "admin" && (
               <div className="ml-auto flex gap-2">
+                <button
+                  onClick={() => handleToggleOutOfStock()}
+                  className={`px-4 py-2 rounded font-medium transition text-white ${
+                    item.outOfStock
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-red-600 hover:bg-red-700"
+                  }`}
+                >
+                  {item.outOfStock ? "Disponible" : "Agotado"}
+                </button>
                 <button
                   onClick={() => setEditMode(true)}
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium transition"
@@ -455,14 +546,14 @@ export default function ProductDetail() {
         </div>
       </div>
 
+      {/* Especificaciones */}
+      <SpecsTable specs={item.specs} />
+
       {/* Descripción */}
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Descripción</h2>
         <p className="text-zinc-700 leading-relaxed">{descriptionText}</p>
       </section>
-
-      {/* Especificaciones */}
-      <SpecsTable specs={item.specs} />
 
       {/* Relacionados – carrusel */}
       {relatedProducts.length > 0 && (
@@ -474,6 +565,7 @@ export default function ProductDetail() {
               navigate(`/item/${encodeURIComponent(rid)}`);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
+            isAdmin={auth?.user?.role === "admin"}
           />
         </section>
       )}

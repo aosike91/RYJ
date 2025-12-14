@@ -445,7 +445,7 @@ useEffect(() => {
               label="Categorías"
               items={CATEGORIES}
               onSelect={(name) =>
-                navigate(`/?categoria=${encodeURIComponent(name)}`)
+                navigate(`/search?q=${encodeURIComponent(name)}`)
               }
             />
             <Dropdown
@@ -453,7 +453,7 @@ useEffect(() => {
               items={MANTENIMIENTO}
               onSelect={(name) =>
                 navigate(
-                  `/?mantenimiento=${encodeURIComponent(name)}`
+                  `/search?q=${encodeURIComponent(name)}`
                 )
               }
             />
@@ -462,7 +462,7 @@ useEffect(() => {
               items={REPARACION}
               onSelect={(name) =>
                 navigate(
-                  `/?reparacion=${encodeURIComponent(name)}`
+                  `/search?q=${encodeURIComponent(name)}`
                 )
               }
             />

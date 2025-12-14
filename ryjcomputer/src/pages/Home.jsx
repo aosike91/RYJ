@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import { formatPEN } from "../lib/money.js";
 import { getImageUrl } from "../lib/api.js";
 import * as catalog from "../data/catalog.js";
@@ -35,7 +36,7 @@ function PressButton({ className = "", onClick, children, ...props }) {
 }
 
 // Tarjeta producto/servicio con selector de cantidad y validaciones
-function Card({ item, add, navigate }) {
+function Card({ item, add, navigate, isAdmin = false }) {
   const [qty, setQty] = React.useState("");
   const isService = item.kind === "service";
   const price = isService ? (item.price ?? item.priceFrom ?? 0) : item.price;
@@ -125,6 +126,11 @@ function Card({ item, add, navigate }) {
               Agotado
             </div>
           )}
+          {isAdmin && item.outOfStock && (
+            <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded font-semibold">
+              Fuera de Stock
+            </div>
+          )}
         </div>
         <div className="p-4 space-y-2 flex-1 flex flex-col">
           <h3 className="font-semibold text-sm line-clamp-2 min-h-[2.5rem]">
@@ -133,6 +139,24 @@ function Card({ item, add, navigate }) {
           <p className="text-xs text-zinc-500 line-clamp-1">
             {Array.isArray(item.categories) ? item.categories.slice(0, 2).join(", ") : item.category || ""}
           </p>
+          {item.condition && (
+            <div className="inline-block">
+              <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                item.condition === 'nuevo' 
+                  ? 'bg-green-100 text-green-800' 
+                  : item.condition === 'seminuevo'
+                  ? 'bg-blue-100 text-blue-800'
+                  : item.condition === 'desegunda'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-purple-100 text-purple-800'
+              }`}>
+                {item.condition === 'nuevo' && '✓ Nuevo'}
+                {item.condition === 'seminuevo' && '✓ Seminuevo'}
+                {item.condition === 'desegunda' && '✓ De segunda'}
+                {item.condition === 'importada' && '✓ Importada'}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2 mt-auto flex-wrap">
             <div className="text-xl font-bold text-brand-purple">
               {formatPEN(price)}
@@ -202,7 +226,7 @@ function Card({ item, add, navigate }) {
 
 
 /** Carrusel reutilizable (móvil: swipe; desktop: flechas + scroll suave) */
-function FeaturedRow({ title, items, add, navigate }) {
+function FeaturedRow({ title, items, add, navigate, isAdmin = false }) {
   if (!items?.length) return null;
 
   const trackRef = useRef(null);
@@ -260,7 +284,7 @@ function FeaturedRow({ title, items, add, navigate }) {
                 xl:w-[calc(25%-0.75rem)]
               "
             >
-              <Card item={it} add={add} navigate={navigate} />
+              <Card item={it} add={add} navigate={navigate} isAdmin={isAdmin} />
             </div>
           ))}
         </div>
@@ -297,6 +321,8 @@ export default function Home() {
   const { add } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const auth = useAuth();
+  const isAdmin = auth?.user?.role === "admin";
 
   // Estado para productos del backend
   const [products, setProducts] = useState([]);
@@ -310,9 +336,12 @@ export default function Home() {
         const res = await fetch(`${API_BASE}/products`);
         const data = await res.json();
         
+        // Filtrar productos que no están "Fuera de Stock" (a menos que sea admin)
+        const filtered = isAdmin ? data : data.filter(p => !p.outOfStock);
+        
         // Separar productos y servicios
-        const prods = data.filter(p => p.kind === 'product' || !p.kind);
-        const servs = data.filter(p => p.kind === 'service');
+        const prods = filtered.filter(p => p.kind === 'product' || !p.kind);
+        const servs = filtered.filter(p => p.kind === 'service');
         
         setProducts(prods);
         setServices(servs);
@@ -345,7 +374,7 @@ export default function Home() {
   const prev = () => setIndex((i) => (i === 0 ? carouselImages.length - 1 : i - 1));
   const next = () => setIndex((i) => (i === carouselImages.length - 1 ? 0 : i + 1));
 
-  // Destacados
+  // Destacados - filtrar productos "Fuera de Stock" (excepto para admins)
   const featuredMain = [...products, ...services].filter((i) => i?.featured);
   const featuredBy = (cat) => products.filter((p) => {
     const cats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
@@ -427,6 +456,7 @@ export default function Home() {
         items={featuredMain}
         add={add}
         navigate={navigate}
+        isAdmin={isAdmin}
       />
 
       {/* Destacados por tipo */}
@@ -440,6 +470,7 @@ export default function Home() {
             items={items}
             add={add}
             navigate={navigate}
+            isAdmin={isAdmin}
           />
         );
       })}

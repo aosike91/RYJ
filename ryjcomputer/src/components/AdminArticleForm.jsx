@@ -16,6 +16,7 @@ export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, toke
     description: initial.description || '',
     specs: initial.specs || {},
     thumb: initial.thumb || '',
+    condition: initial.condition || 'nuevo',
   });
   const [selectedFile, setSelectedFile] = useState(null);
 
@@ -33,6 +34,7 @@ export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, toke
         description: initial.description || '',
         specs: initial.specs || {},
         thumb: initial.thumb || '',
+        condition: initial.condition || 'nuevo',
       });
       setSelectedFile(null);
     }
@@ -66,6 +68,56 @@ export default function AdminArticleForm({ initial = {}, onCreate = ()=>{}, toke
               className="w-4 h-4"
             />
             <span className="ml-2 text-sm">Mostrar en destacados</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium mb-2 block">Condición del Producto</label>
+        <div className="space-y-2 mt-2">
+          <label className="inline-flex items-center mr-4">
+            <input
+              type="radio"
+              name="condition"
+              value="nuevo"
+              checked={form.condition === 'nuevo'}
+              onChange={e=>setForm(s=>({...s,condition:'nuevo'}))}
+              className="w-4 h-4"
+            />
+            <span className="ml-2 text-sm">Nuevo</span>
+          </label>
+          <label className="inline-flex items-center mr-4">
+            <input
+              type="radio"
+              name="condition"
+              value="seminuevo"
+              checked={form.condition === 'seminuevo'}
+              onChange={e=>setForm(s=>({...s,condition:'seminuevo'}))}
+              className="w-4 h-4"
+            />
+            <span className="ml-2 text-sm">Seminuevo</span>
+          </label>
+          <label className="inline-flex items-center mr-4">
+            <input
+              type="radio"
+              name="condition"
+              value="desegunda"
+              checked={form.condition === 'desegunda'}
+              onChange={e=>setForm(s=>({...s,condition:'desegunda'}))}
+              className="w-4 h-4"
+            />
+            <span className="ml-2 text-sm">De segunda</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              name="condition"
+              value="importada"
+              checked={form.condition === 'importada'}
+              onChange={e=>setForm(s=>({...s,condition:'importada'}))}
+              className="w-4 h-4"
+            />
+            <span className="ml-2 text-sm">Importada</span>
           </label>
         </div>
       </div>

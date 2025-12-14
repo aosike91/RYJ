@@ -73,11 +73,26 @@ const SPECS_BY_TYPE = {
   ],
 };
 
+// Sinónimos de categorías que comparten las mismas especificaciones
+const CATEGORY_SYNONYMS = {
+  "Tarjeta de video": "Tarjeta gráfica",
+  "Tarjeta de Video": "Tarjeta gráfica",
+  "Tarjeta Gráfica": "Tarjeta gráfica",
+  "Tarjeta grafica": "Tarjeta gráfica",
+  "Tarjeta Grafica": "Tarjeta gráfica",
+};
+
+// Normalizar una categoría a su nombre estándar
+function normalizeCategoryName(category) {
+  return CATEGORY_SYNONYMS[category] || category;
+}
+
 // Detectar el tipo basado en las categorías seleccionadas
 function detectProductType(categories) {
   for (const cat of categories) {
-    if (SPECS_BY_TYPE[cat]) {
-      return cat;
+    const normalized = normalizeCategoryName(cat);
+    if (SPECS_BY_TYPE[normalized]) {
+      return normalized;
     }
   }
   return null;
