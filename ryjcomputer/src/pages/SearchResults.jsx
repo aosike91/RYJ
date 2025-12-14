@@ -316,19 +316,68 @@ export default function SearchResults() {
               <h3 className="font-semibold text-sm mb-3">Rango de Precio</h3>
               <div className="space-y-4">
                 <div className="relative pt-6 pb-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100000"
-                    value={priceRange[1]}
-                    onChange={(e) => {
-                      setPriceRange([0, parseInt(e.target.value)]);
-                    }}
-                    className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  {/* Track visual con colores */}
+                  <div
+                    className="absolute top-[22px] h-2 rounded-lg pointer-events-none"
                     style={{
-                      background: `linear-gradient(to right, #2563eb 0%, #2563eb ${(priceRange[1] / 100000) * 100}%, #d1d5db ${(priceRange[1] / 100000) * 100}%, #d1d5db 100%)`
+                      left: 0,
+                      width: `${(priceRange[0] / 100000) * 100}%`,
+                      backgroundColor: "#d1d5db",
                     }}
                   />
+                  <div
+                    className="absolute top-[22px] h-2 rounded-lg pointer-events-none"
+                    style={{
+                      left: `${(priceRange[0] / 100000) * 100}%`,
+                      width: `${((priceRange[1] - priceRange[0]) / 100000) * 100}%`,
+                      backgroundColor: "#2563eb",
+                    }}
+                  />
+                  <div
+                    className="absolute top-[22px] h-2 rounded-lg pointer-events-none"
+                    style={{
+                      left: `${(priceRange[1] / 100000) * 100}%`,
+                      width: `${(1 - priceRange[1] / 100000) * 100}%`,
+                      backgroundColor: "#d1d5db",
+                    }}
+                  />
+
+                  {/* Inputs range superpuestos */}
+                  <div className="relative">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100000"
+                      value={priceRange[0]}
+                      onChange={(e) => {
+                        const newMin = parseInt(e.target.value);
+                        if (newMin <= priceRange[1]) {
+                          setPriceRange([newMin, priceRange[1]]);
+                        }
+                      }}
+                      className="absolute w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer pointer-events-none"
+                      style={{
+                        zIndex: priceRange[0] > priceRange[1] - 5000 ? 5 : 3,
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max="100000"
+                      value={priceRange[1]}
+                      onChange={(e) => {
+                        const newMax = parseInt(e.target.value);
+                        if (newMax >= priceRange[0]) {
+                          setPriceRange([priceRange[0], newMax]);
+                        }
+                      }}
+                      className="absolute w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer pointer-events-none"
+                      style={{
+                        zIndex: priceRange[1] < priceRange[0] + 5000 ? 3 : 5,
+                      }}
+                    />
+                  </div>
+
                   <style>{`
                     input[type='range'] {
                       -webkit-appearance: none;
@@ -347,6 +396,12 @@ export default function SearchResults() {
                       cursor: pointer;
                       border: 3px solid white;
                       box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+                      pointer-events: auto;
+                    }
+                    
+                    input[type='range']::-webkit-slider-runnable-track {
+                      background: transparent;
+                      border: none;
                     }
                     
                     input[type='range']::-moz-range-thumb {
@@ -357,12 +412,18 @@ export default function SearchResults() {
                       cursor: pointer;
                       border: 3px solid white;
                       box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+                      pointer-events: auto;
+                    }
+                    
+                    input[type='range']::-moz-range-track {
+                      background: transparent;
+                      border: none;
                     }
                   `}</style>
                 </div>
                 <div className="flex items-center justify-center text-center">
                   <span className="text-sm font-semibold text-zinc-800">
-                    S/ 0 - S/ {priceRange[1].toLocaleString()}
+                    S/ {priceRange[0].toLocaleString()} - S/ {priceRange[1].toLocaleString()}
                   </span>
                 </div>
                 <button

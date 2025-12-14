@@ -6,7 +6,7 @@ import { formatPEN } from "../lib/money.js";
 import { getImageUrl } from "../lib/api.js";
 import * as catalog from "../data/catalog.js";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL;
 
 export default function MiniCartDrawer({ open, onClose }) {
   const { items, remove, subtotal, incQty, decQty, setQty } = useCart();
